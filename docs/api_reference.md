@@ -12,6 +12,9 @@
     - Sends prompt to Granite, expects pure JSON text
     - Parses JSON and validates against `data/schemas/receipt_schema.json`
     - Raises `ValueError` if model returns invalid JSON; raises schema `ValidationError` for invalid structure
+- `tools/query_analyzer.py`
+  - `QueryAnalyzer.analyze(user_query: str, current_date: Optional[str] = None) -> dict`
+    - Uses `QUERY_ANALYSIS_PROMPT` to produce structured query intent JSON
 - `tools/sheets_manager.py`
   - `SheetsManager.append_expense(expense: dict) -> None`
     - Appends a row to Google Sheets via `GoogleSheetsClient`
@@ -23,7 +26,8 @@
 - `tools/controller.py`
   - `Controller.handle_file_shared(body: dict) -> dict`
     - Orchestrates OCR → LLM → schema validation → Sheets append with duplicate detection
-  - `Controller.handle_query(text: str) -> str` (placeholder for M4)
+  - `Controller.handle_query(text: str) -> str`
+    - Uses `QueryAnalyzer` to derive filters and returns a simple summary for now
 
 ## Integrations
 - `integrations/google_sheets_api.py`
@@ -47,4 +51,5 @@
 - Integration-like tests validate:
   - Google Sheets row mapping and query passthrough
   - Slack API message posting and file upload
-  - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append 
+  - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append
+  - Query flow: analyzer intent parsing; controller summary totals 

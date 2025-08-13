@@ -16,67 +16,34 @@ Reference: IBM watsonx Orchestrate docs [`Getting started`](https://www.ibm.com/
 
 ---
 
-## Completed (M0–M2)
+## Completed (M0–M3)
 - Repository scaffolded with all directories, configs, schemas, docs, and tests
 - `.gitignore`, `agent.yaml`, `config/` seeded; Memory Bank established
-- Tooling stubs implemented with robust unit tests and mocks (no live calls)
-- `TextExtractor` with image/PDF paths, preprocessing hooks, and error handling
-- `ReceiptProcessor` with Granite prompt, JSON parsing, and schema validation (`data/schemas/receipt_schema.json`)
-- `SheetsManager` basic append/query with logging; Google client wrapper ready
-- `SlackInterface` handlers for `message` and `file_shared` with tests using a fake app
-- Integration-like tests: Google Sheets mapping, Slack API post and file upload, end-to-end mocked flow
-- Granite client interface expanded with `build_request(...)` (generate mocked in tests)
-- Docs updated (`docs/api_reference.md`, `docs/setup.md`); Memory Bank updated
-- All tests green locally via `pytest`
+- Tools solidified with tests and mocks: Text extraction, Receipt processing (with schema validation), Sheets manager, Slack interface
+- Integrations expanded: Granite client interface, Sheets helpers, Slack file upload
+- Controller added for end-to-end receipt flow with retries, duplicate detection, and extended column mapping
+- Docs and Memory Bank updated; tests green
 
-## Pending (M3–M5)
-- M3 — End-to-End Receipt Flow (In Progress)
-  - Add controller to orchestrate Slack upload → OCR → LLM extraction → Sheets append
-  - Persist file link in Sheets, duplicate detection, confidence handling
-  - Error handling + retries (tenacity)
-- M4 — Query Flow
-  - Natural language queries → Sheets data retrieval
-  - Response formatting (table/summary)
+## Pending (M4–M5)
+- M4 — Query Flow (In Progress)
+  - Add `QueryAnalyzer` using Granite to parse natural language queries
+  - Enhance controller `handle_query` to filter and summarize results
+  - Tests for analyzer parsing and controller summary counts/totals
 - M5 — Deployment and Hardening
   - Package/deploy via Watsonx Orchestrate ADK
-  - Observability, audit trail, manual review path
+  - Observability, audit trail, and manual review path
 
 ---
 
 ## Milestones and Deliverables
 
-### M0 — Repository and Scaffolding (Completed)
-Deliverables:
-- Project folders and starter files created
-- `.env.sample` with placeholders (no secrets)
-- `.gitignore` configured
-- `agent.yaml` baseline
-- `config/` package seeded (`settings.py`, `prompts.py`, `connections.yaml`)
-- Docs seeded in `docs/`
-- Initial commit and push to GitHub
-
-### M1 — Core Tooling (Completed)
-- Implement minimal versions of:
-  - `tools/text_extractor.py`
-  - `tools/receipt_processor.py`
-  - `tools/sheets_manager.py`
-  - `tools/slack_interface.py`
-- Add unit tests in `tests/test_tools/` covering happy-path basics.
-- Ensure tests run locally (pytest) and document commands.
-
-### M2 — Integrations (Completed)
-- `models/granite_client.py` interface additions
-- `integrations/google_sheets_api.py` (create/read/append helpers)
-- `integrations/slack_api.py` (file upload)
-- Integration tests with mocks in `tests/test_integrations/`
-
-### M3 — End-to-End Receipt Flow (In Progress)
+### M3 — End-to-End Receipt Flow (Completed)
 - Slack upload → OCR → LLM extraction → Sheets append
 - Persist file link in Sheets
 - Add duplicate-detection logic and confidence scoring
 - Error handling + retries (tenacity)
 
-### M4 — Query Flow
+### M4 — Query Flow (In Progress)
 - Natural language queries via Slack
 - LLM-based query understanding → Sheets data retrieval
 - Response formatting (table/summary)
@@ -212,4 +179,4 @@ git add . ; git commit -m "feat: scaffold project and planning docs" ; git push 
 ---
 
 ## Next Actions (after this commit)
-- Continue M3 controller tests and refine orchestration as needed 
+- Expand query responses (e.g., vendor breakdown, time range filtering) and formatting 

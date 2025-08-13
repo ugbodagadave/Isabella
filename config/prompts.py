@@ -58,19 +58,19 @@ DETERMINE:
 4. Response format: table, list, chart, or narrative
 
 Return as JSON:
-{
+{{
   "query_type": "summary|search|analysis|report",
-  "time_range": {
+  "time_range": {{
     "start_date": "YYYY-MM-DD or null",
     "end_date": "YYYY-MM-DD or null",
     "period": "last_month|this_year|etc or null"
-  },
-  "filters": {
+  }},
+  "filters": {{
     "categories": ["category1", "category2"] or null,
     "vendors": ["vendor1", "vendor2"] or null,
     "min_amount": number or null,
     "max_amount": number or null
-  },
+  }},
   "response_format": "table|summary|chart|detailed"
-}
+}}
 """ 
