@@ -28,6 +28,7 @@
 ## Integrations
 - `integrations/google_sheets_api.py`
   - `GoogleSheetsClient.append_row(expense: dict) -> None`
+    - Maps to columns including Processed_Date and Confidence_Score
   - `GoogleSheetsClient.query(filters: dict) -> list[dict]`
   - `GoogleSheetsClient.create_spreadsheet(title: str) -> Any`
   - `GoogleSheetsClient.open_worksheet(worksheet_name: str) -> Any`

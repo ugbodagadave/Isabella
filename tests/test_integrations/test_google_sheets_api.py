@@ -30,13 +30,21 @@ def test_google_sheets_client_append_and_query():
 			"category": "Office Supplies",
 			"description": "pens",
 			"receipt_link": "http://link",
+			"payment_method": "Card",
+			"receipt_number": "R1",
+			"tax_amount": 0.67,
+			"location": "NYC",
+			"confidence": 95,
 		}
 		client.append_row(expense)
 
 		fake_worksheet.append_row.assert_called_once()
 		args, kwargs = fake_worksheet.append_row.call_args
 		row = args[0]
-		assert row == ["2024-01-01", "ACME", 12.34, "Office Supplies", "pens", "http://link"]
+		# Processed date is dynamic at index -2; assert fixed prefix and suffix
+		assert row[:6] == ["2024-01-01", "ACME", 12.34, "Office Supplies", "pens", "http://link"]
+		assert row[6:10] == ["Card", "R1", 0.67, "NYC"]
+		assert row[-1] == 95
 
 		# Query returns records from worksheet
 		records = client.query({})

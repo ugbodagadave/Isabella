@@ -26,12 +26,29 @@ def make_controller(mock_text: str, mock_receipt: dict, existing_rows=None):
 
 def test_controller_handles_file_shared_and_appends():
 	mock_text = "ACME Total 12.34 on 2024-01-01"
-	mock_receipt = {"vendor": "ACME", "amount": 12.34, "date": "2024-01-01", "category": "Office Supplies"}
+	mock_receipt = {
+		"vendor": "ACME",
+		"amount": 12.34,
+		"date": "2024-01-01",
+		"category": "Office Supplies",
+		"payment_method": "Card",
+		"receipt_number": "R1",
+		"tax_amount": 0.67,
+		"location": "NYC",
+		"confidence": 93,
+	}
 	controller, extractor, rp, sheets = make_controller(mock_text, mock_receipt)
 
 	result = controller.handle_file_shared({"local_path": "/tmp/rcpt.png", "receipt_link": "http://link"})
 	assert result["status"] == "appended"
 	sheets.append_expense.assert_called_once()
+	args, kwargs = sheets.append_expense.call_args
+	expense = args[0]
+	assert expense["payment_method"] == "Card"
+	assert expense["receipt_number"] == "R1"
+	assert expense["tax_amount"] == 0.67
+	assert expense["location"] == "NYC"
+	assert expense["confidence"] == 93
 
 
 def test_controller_detects_duplicate():

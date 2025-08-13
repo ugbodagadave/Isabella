@@ -33,6 +33,10 @@ class Controller:
 	def _process_receipt_with_retry(self, text: str) -> Dict[str, Any]:
 		return self.receipt_processor.process(text)
 
+	@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
+	def _append_with_retry(self, expense: Dict[str, Any]) -> None:
+		self.sheets.append_expense(expense)
+
 	def _is_duplicate(self, expense: Dict[str, Any]) -> bool:
 		if not self.settings.rules.duplicate_detection_enabled:
 			return False
@@ -78,12 +82,16 @@ class Controller:
 			"description": receipt.get("description", ""),
 			"receipt_link": receipt_link,
 			"confidence": confidence,
+			"payment_method": receipt.get("payment_method", ""),
+			"receipt_number": receipt.get("receipt_number", ""),
+			"tax_amount": receipt.get("tax_amount", ""),
+			"location": receipt.get("location", ""),
 		}
 
 		if self._is_duplicate(expense):
 			logger.info("Duplicate receipt detected: vendor=%s date=%s amount=%s", expense.get("vendor"), expense.get("date"), expense.get("amount"))
 			return {"status": "duplicate", "expense": expense}
 
-		self.sheets.append_expense(expense)
+		self._append_with_retry(expense)
 		logger.info("Receipt appended to sheet: vendor=%s date=%s amount=%s", expense.get("vendor"), expense.get("date"), expense.get("amount"))
 		return {"status": "appended", "expense": expense} 

@@ -1,4 +1,6 @@
 from typing import Dict, Any, List
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -38,7 +40,11 @@ class GoogleSheetsClient:
 	def append_row(self, expense: Dict[str, Any]) -> None:
 		if self._sheet is None:
 			self.connect()
-		# Expect columns to be pre-configured; map dict to row order
+		# Map to template columns order (see data/templates/sheets_template.json)
+		try:
+			processed_dt = datetime.now(ZoneInfo(self.settings.rules.timezone)).isoformat()
+		except Exception:
+			processed_dt = datetime.now().isoformat()
 		row = [
 			expense.get("date", ""),
 			expense.get("vendor", ""),
@@ -46,6 +52,12 @@ class GoogleSheetsClient:
 			expense.get("category", ""),
 			expense.get("description", ""),
 			expense.get("receipt_link", ""),
+			expense.get("payment_method", ""),
+			expense.get("receipt_number", ""),
+			expense.get("tax_amount", ""),
+			expense.get("location", ""),
+			processed_dt,
+			expense.get("confidence", ""),
 		]
 		self._sheet.append_row(row, value_input_option="USER_ENTERED")
 

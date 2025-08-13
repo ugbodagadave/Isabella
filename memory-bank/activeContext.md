@@ -1,12 +1,11 @@
 # Active Context
 
 Current Focus:
-- M3 In Progress: controller orchestration for Slack upload → OCR → LLM → Sheets with duplicate detection
+- M3 finalized: controller orchestration with retries; Sheets mapping includes processed date and confidence
 
 Next Steps:
-- Maintain mocks for external services; no live network calls in tests
-- Finalize controller tests; prepare for M4 query flow
+- Prepare for M4 query flow; keep external calls mocked in tests
 
 Decisions:
-- Keep `GraniteClient.generate` unimplemented locally; rely on mocks
-- Persist `receipt_link` when provided; log duplicates instead of appending 
+- Keep `GraniteClient.generate` mocked for local tests
+- Append extended fields to Sheets per template; compute processed date in configured timezone 
