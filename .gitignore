@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.venv/
+venv/
+.venv*/
+
+# Env and secrets
+.env
+.env.*
+config/google-credentials.json
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Tests and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Builds
+build/
+dist/
+*.spec
+
+# Orchestrate/ADK local
+.orchestrate/
+
+# Data outputs
+data/receipts/processed/
+data/receipts/backups/ 

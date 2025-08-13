@@ -1,0 +1,16 @@
+---
+description: Before using the terminal, this rule has to be applied
+alwaysApply: false
+---
+# PowerShell Command Chaining
+
+When working in a Windows PowerShell environment, **NEVER** use `&&` or `||` operators to chain commands in a single line. These are not valid separators in PowerShell.
+
+Instead, use one of the following methods:
+
+1.  **Semicolon (`;`)**: Use a semicolon to separate commands that should be executed sequentially, regardless of whether the previous command succeeds or fails.
+    ```powershell
+    git add . ; git commit -m "My commit message"
+    ```
+
+2.  **Separate `execute_command` calls**: For maximum reliability, execute each command in a separate `<execute_command>` tool call. This is the preferred method.

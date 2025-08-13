@@ -1,0 +1,16 @@
+watsonx:
+  url: ${WATSONX_URL}
+  project_id: ${WATSONX_PROJECT_ID}
+  api_key: ${WATSONX_API_KEY}
+  model_id: ${GRANITE_MODEL_ID}
+
+google_sheets:
+  credentials_path: ${GOOGLE_SHEETS_CREDENTIALS_PATH}
+  spreadsheet_id: ${GOOGLE_SHEETS_SPREADSHEET_ID}
+  worksheet_name: ${GOOGLE_SHEETS_WORKSHEET_NAME}
+
+slack:
+  app_token: ${SLACK_APP_TOKEN}
+  bot_token: ${SLACK_BOT_TOKEN}
+  signing_secret: ${SLACK_SIGNING_SECRET}
+  default_channel_id: ${SLACK_CHANNEL_ID} 

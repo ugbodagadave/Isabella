@@ -1,0 +1,6 @@
+---
+description: Always reference this when you are about to handle environment variables
+alwaysApply: false
+---
+You do not have access to environment variables, if you need edit, modify or get information about the environment variable, always ask the user.
+Environment Variables is always present, you just don't access to see or modify it. Ask the User

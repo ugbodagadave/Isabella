@@ -1,0 +1,163 @@
+---
+alwaysApply: true
+---
+# Test-Document-Commit-Push Git Workflow
+
+## Overview
+This workflow ensures all code changes are thoroughly tested, properly documented, and committed with complete information before being pushed to the repository. The workflow follows a strict sequence: Test → Document → Commit → Push.
+
+## Workflow Steps
+
+### 1. After Making Changes or Adding Features
+- Run complete test suite on entire codebase
+- Wait for test results and analyze output
+
+### 2. If All Tests Pass → Proceed to Documentation
+- **DO NOT SKIP**: Documentation is mandatory before committing
+- Update all relevant documentation (see Documentation Checklist below)
+- Verify documentation is accurate and complete
+
+### 3. If Any Tests Fail
+- **DO NOT PROCEED TO DOCUMENTATION OR COMMIT**
+- Analyze failing test output
+- Identify root cause of test failures
+- Fix the failing tests by either:
+  - Correcting the implementation code
+  - Updating test expectations if they're outdated
+  - Fixing test setup/teardown issues
+- Re-run complete test suite
+- Repeat until all tests pass
+- Only then proceed to documentation step
+
+### 4. After Documentation is Complete
+- Stage all changes (code + documentation): `git add .`
+- Commit with descriptive message: `git commit -m "feat/fix: [description]"`
+- Push to remote repository: `git push origin [branch-name]`
+
+## Documentation Checklist
+
+### Always Update When Applicable:
+- [ ] **README.md** - Installation, usage, examples
+- [ ] **API Documentation** - Function/method signatures, parameters, 
+how_it_works.mdreturn values
+- [ ] **Code Comments** - Complex logic, business rules, edge cases
+- [ ] **CHANGELOG.md** - Version changes, new features, breaking changes
+- [ ] **Type Definitions** - TypeScript interfaces, JSDoc types
+- [ ] **Configuration Docs** - New config options, environment variables
+- [ ] **Examples/Tutorials** - Usage examples for new features
+- [ ] **Architecture Docs** - Design decisions, system changes
+
+### Documentation Quality Standards:
+- Write clear, concise explanations
+- Include practical examples
+- Document edge cases and limitations
+- Use consistent formatting and style
+- Verify all links and references work
+- Check spelling and grammar
+
+## Test Commands
+```bash
+# Run all tests
+npm test
+# or
+yarn test
+# or
+pytest
+# or whatever test command is appropriate for the project
+
+# Run tests with coverage
+npm run test:coverage
+# or
+pytest --cov
+```
+
+## Documentation Commands
+```bash
+# Generate API documentation (if applicable)
+npm run docs:generate
+# or
+yarn docs:build
+
+# Preview documentation locally
+npm run docs:serve
+# or
+mkdocs serve
+```
+
+## Git Commands
+```bash
+# Stage all changes (code + docs)
+git add .
+
+# Commit with descriptive message
+git commit -m "feat: add user authentication with OAuth2
+
+
+# Push to remote
+git push origin main
+```
+
+## Commit Message Format
+Use this structure for clear, informative commits:
+
+```
+type: brief description
+
+- Bullet point of what changed
+- Include both code and documentation changes
+- Mention any breaking changes
+- Reference issue numbers if applicable
+```
+
+### Commit Types:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation only changes
+- `refactor:` - Code refactoring
+- `test:` - Adding or updating tests
+- `chore:` - Maintenance tasks
+
+## Important Rules
+
+### Never Skip Documentation
+- Documentation is not optional - it's part of the feature
+- Incomplete documentation = incomplete feature
+- Future developers (including you) depend on good docs
+
+### Never Push Failing Tests
+- **Zero tolerance** for failing tests in main branch
+- Fix all test failures before proceeding
+- Always run the full test suite, not just affected tests
+
+### Quality Gates
+All must be satisfied before pushing:
+1. ✅ **All tests pass**
+2. ✅ **Documentation is complete and accurate**  
+3. ✅ **Code is committed with clear message**
+4. ✅ **Changes are pushed to remote repository**
+5. ✅ **Working directory is clean**
+
+## Success Criteria Checklist
+
+### Testing Phase:
+- [ ] All unit tests pass
+- [ ] All integration tests pass
+- [ ] Code coverage meets project standards
+- [ ] No test warnings or deprecation notices
+
+### Documentation Phase:
+- [ ] All relevant docs updated
+- [ ] Examples work and are tested
+- [ ] Documentation builds without errors
+- [ ] Links and references verified
+
+### Commit Phase:
+- [ ] Descriptive commit message written
+- [ ] All changes staged (code + docs)
+- [ ] Commit includes both implementation and documentation
+- [ ] No untracked files remain
+
+### Push Phase:
+- [ ] Successfully pushed to remote
+- [ ] Working directory is clean
+- [ ] Remote branch is up to date
