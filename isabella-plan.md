@@ -16,7 +16,7 @@ Reference: IBM watsonx Orchestrate docs [`Getting started`](https://www.ibm.com/
 
 ---
 
-## Completed (M0–M1)
+## Completed (M0–M2)
 - Repository scaffolded with all directories, configs, schemas, docs, and tests
 - `.gitignore`, `agent.yaml`, `config/` seeded; Memory Bank established
 - Tooling stubs implemented with robust unit tests and mocks (no live calls)
@@ -24,18 +24,15 @@ Reference: IBM watsonx Orchestrate docs [`Getting started`](https://www.ibm.com/
 - `ReceiptProcessor` with Granite prompt, JSON parsing, and schema validation (`data/schemas/receipt_schema.json`)
 - `SheetsManager` basic append/query with logging; Google client wrapper ready
 - `SlackInterface` handlers for `message` and `file_shared` with tests using a fake app
-- Integration-like tests added: Google Sheets mapping, Slack API post, and end-to-end mocked flow
+- Integration-like tests: Google Sheets mapping, Slack API post and file upload, end-to-end mocked flow
+- Granite client interface expanded with `build_request(...)` (generate mocked in tests)
 - Docs updated (`docs/api_reference.md`, `docs/setup.md`); Memory Bank updated
 - All tests green locally via `pytest`
 
-## Pending (M2–M5)
-- M2 — Integrations (clients + tests)
-  - Granite client wiring plan (still mocked in tests; no live calls)
-  - Expand Google Sheets and Slack client behaviors and test surfaces as needed
-  - Keep all external interactions mocked in tests
-- M3 — End-to-End Receipt Flow
-  - Slack upload → OCR → LLM extraction → Sheets append (validate with sample)
-  - Duplicate detection and confidence handling
+## Pending (M3–M5)
+- M3 — End-to-End Receipt Flow (In Progress)
+  - Add controller to orchestrate Slack upload → OCR → LLM extraction → Sheets append
+  - Persist file link in Sheets, duplicate detection, confidence handling
   - Error handling + retries (tenacity)
 - M4 — Query Flow
   - Natural language queries → Sheets data retrieval
@@ -67,13 +64,13 @@ Deliverables:
 - Add unit tests in `tests/test_tools/` covering happy-path basics.
 - Ensure tests run locally (pytest) and document commands.
 
-### M2 — Integrations (clients + tests)
-- `models/granite_client.py` to call Granite 3.3 through Watsonx services
-- `integrations/google_sheets_api.py` (create/read/append)
-- `integrations/slack_api.py` (file upload, events)
+### M2 — Integrations (Completed)
+- `models/granite_client.py` interface additions
+- `integrations/google_sheets_api.py` (create/read/append helpers)
+- `integrations/slack_api.py` (file upload)
 - Integration tests with mocks in `tests/test_integrations/`
 
-### M3 — End-to-End Receipt Flow
+### M3 — End-to-End Receipt Flow (In Progress)
 - Slack upload → OCR → LLM extraction → Sheets append
 - Persist file link in Sheets
 - Add duplicate-detection logic and confidence scoring
@@ -215,5 +212,4 @@ git add . ; git commit -m "feat: scaffold project and planning docs" ; git push 
 ---
 
 ## Next Actions (after this commit)
-- Confirm the NEED-CONFIRM items above
-- Implement M2 integrations and expand tests 
+- Continue M3 controller tests and refine orchestration as needed 

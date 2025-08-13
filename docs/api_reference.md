@@ -20,6 +20,10 @@
 - `tools/slack_interface.py`
   - Registers handlers for `message` and `file_shared` events that delegate to controller methods
   - `SlackInterface.start() -> None`
+- `tools/controller.py`
+  - `Controller.handle_file_shared(body: dict) -> dict`
+    - Orchestrates OCR → LLM → schema validation → Sheets append with duplicate detection
+  - `Controller.handle_query(text: str) -> str` (placeholder for M4)
 
 ## Integrations
 - `integrations/google_sheets_api.py`
