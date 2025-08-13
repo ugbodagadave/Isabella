@@ -31,4 +31,11 @@
 ## Models
 - `models/granite_client.py`
   - `GraniteClient.generate(prompt: str) -> str` (NotImplemented for local tests; must be mocked)
-  - `GraniteClient.parse_json(text: str) -> Any` 
+  - `GraniteClient.parse_json(text: str) -> Any`
+
+## Test Coverage Notes
+- Unit tests mock external services: OCR, Granite, Slack, Google Sheets
+- Integration-like tests validate:
+  - Google Sheets row mapping and query passthrough
+  - Slack API message posting
+  - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append 
