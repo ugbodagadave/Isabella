@@ -43,8 +43,13 @@
 ## Models
 - `models/granite_client.py`
   - `GraniteClient.build_request(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> dict`
-  - `GraniteClient.generate(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> str` (NotImplemented for local tests; must be mocked)
+  - `GraniteClient.generate(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> str` (implemented for live E2E)
   - `GraniteClient.parse_json(text: str) -> Any`
+
+## Tests
+- Live E2E: `tests/test_e2e/test_e2e_live_flow.py` (marker: `e2e`)
+  - OCR → Granite → Sheets append, posts confirmation to Slack channel
+  - Requires env vars and real credentials to be set
 
 ## Settings
 - `config/settings.py`

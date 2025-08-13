@@ -20,6 +20,17 @@ pip install -r requirements.txt
 pytest -q
 ```
 
+### Live E2E tests (fully real integrations)
+- E2E tests run only when selected via marker; they use live services, not mocks.
+- Provide either `E2E_RECEIPT_PATH` (local path) or `E2E_RECEIPT_URL` (http/https, Slack links supported with `SLACK_BOT_TOKEN`).
+
+Run only E2E tests (PowerShell):
+```
+pytest -m e2e -q
+```
+
+Note: E2E writes a row with `Description=E2E_TEST` to your sheet; you can remove it afterward if desired.
+
 6. Commit and push (PowerShell)
 ```
 git add . ; git commit -m "chore: deps update and docs" ; git push origin main
