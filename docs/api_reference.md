@@ -27,7 +27,7 @@
   - `Controller.handle_file_shared(body: dict) -> dict`
     - Orchestrates OCR → LLM → schema validation → Sheets append with duplicate detection
   - `Controller.handle_query(text: str) -> str`
-    - Uses `QueryAnalyzer` to derive filters and returns a simple summary for now
+    - Uses `QueryAnalyzer` to derive filters; supports time range filtering; returns vendor breakdown in summaries; renders a simple table for search requests
 
 ## Integrations
 - `integrations/google_sheets_api.py`
@@ -52,4 +52,4 @@
   - Google Sheets row mapping and query passthrough
   - Slack API message posting and file upload
   - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append
-  - Query flow: analyzer intent parsing; controller summary totals 
+  - Query flow: analyzer intent parsing; controller summary totals, vendor breakdown, table rendering 

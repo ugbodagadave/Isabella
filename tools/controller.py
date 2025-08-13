@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, List
 import logging
+from collections import defaultdict
+from datetime import date, datetime
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -28,21 +30,62 @@ class Controller:
 			return f"Received query: {text}"
 		analysis = self.query_analyzer.analyze(text)
 		rows = self.sheets.query_expenses({})
-		filtered = self._apply_filters(rows, analysis.get("filters", {}))
+		filtered = self._apply_filters(rows, analysis.get("filters", {}), analysis.get("time_range") or {})
 		query_type = analysis.get("query_type", "summary")
+		response_format = analysis.get("response_format", "summary")
 		if query_type == "summary":
 			total = sum(float(r.get("amount", 0) or 0) for r in filtered)
 			count = len(filtered)
-			return f"Summary: {count} expenses totaling {total:.2f}"
+			vendor_totals: Dict[str, float] = defaultdict(float)
+			for r in filtered:
+				vendor_totals[str(r.get("vendor", "Unknown"))] += float(r.get("amount", 0) or 0)
+			# Top 5 vendors by spend
+			top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:5]
+			vendors_str = "; ".join(f"{v}: {amt:.2f}" for v, amt in top_vendors) if top_vendors else "None"
+			return f"Summary: {count} expenses totaling {total:.2f}. Vendors: {vendors_str}"
+		elif query_type == "search" and response_format in {"table", "detailed"}:
+			return self._render_table(filtered)
 		else:
-			# For now, return count for other types
 			return f"Found {len(filtered)} matching expenses"
 
-	def _apply_filters(self, rows: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+	def _render_table(self, rows: List[Dict[str, Any]]) -> str:
+		headers = ["Date", "Vendor", "Amount", "Category"]
+		lines = [" | ".join(headers)]
+		for r in rows:
+			lines.append(" | ".join([
+				str(r.get("date", "")),
+				str(r.get("vendor", "")),
+				f"{float(r.get('amount', 0) or 0):.2f}",
+				str(r.get("category", "")),
+			]))
+		return "\n".join(lines)
+
+	def _apply_filters(self, rows: List[Dict[str, Any]], filters: Dict[str, Any], time_range: Dict[str, Any]) -> List[Dict[str, Any]]:
 		categories = set((filters or {}).get("categories") or [])
 		vendors = set((filters or {}).get("vendors") or [])
 		min_amount = (filters or {}).get("min_amount")
 		max_amount = (filters or {}).get("max_amount")
+		start_date_str = (time_range or {}).get("start_date")
+		end_date_str = (time_range or {}).get("end_date")
+
+		def parse_row_date(value: Any) -> Optional[date]:
+			try:
+				if not value:
+					return None
+				return datetime.strptime(str(value), "%Y-%m-%d").date()
+			except Exception:
+				return None
+
+		start_dt = None
+		end_dt = None
+		try:
+			start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date() if start_date_str else None
+		except Exception:
+			start_dt = None
+		try:
+			end_dt = datetime.strptime(end_date_str, "%Y-%m-%d").date() if end_date_str else None
+		except Exception:
+			end_dt = None
 
 		def matches(row: Dict[str, Any]) -> bool:
 			if categories and row.get("category") not in categories:
@@ -57,6 +100,12 @@ class Controller:
 				return False
 			if max_amount is not None and amt > float(max_amount):
 				return False
+			if start_dt or end_dt:
+				rd = parse_row_date(row.get("date"))
+				if start_dt and (rd is None or rd < start_dt):
+					return False
+				if end_dt and (rd is None or rd > end_dt):
+					return False
 			return True
 
 		return [r for r in rows if matches(r)]
