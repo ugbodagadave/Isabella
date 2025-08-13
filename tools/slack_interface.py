@@ -5,8 +5,16 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 
 class SlackInterface:
-	def __init__(self, bot_token: str, app_token: str, signing_secret: str, controller: Any) -> None:
-		self.app = App(token=bot_token, signing_secret=signing_secret)
+	def __init__(self, bot_token: str, app_token: str, signing_secret: str, controller: Any, verify_tokens: bool = False) -> None:
+		# Disable network-based token verification by default (tests)
+		self.app = App(
+			token=bot_token,
+			signing_secret=signing_secret,
+			token_verification_enabled=verify_tokens,
+			request_verification_enabled=verify_tokens,
+			ssl_check_enabled=verify_tokens,
+			url_verification_enabled=verify_tokens,
+		)
 		self.app_token = app_token
 		self.controller = controller
 		self._register_handlers()

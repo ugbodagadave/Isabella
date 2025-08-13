@@ -115,18 +115,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2) IBM Watsonx Orchestrate ADK
-- Install ADK
-- Initialize local project
-- Configure connections as needed
+### 2) IBM Watsonx Orchestrate ADK (Deferred to Deployment Phase)
+- We will NOT install or use the ADK during development. Keep local focus on tools, tests, and docs.
+- ADK initialization and connections will happen only in the Deployment phase.
 
-```
-pip install watsonx-orchestrate-adk
-orchestrate dev init
-orchestrate connections create
-```
-
-Reference: IBM docs — [`Getting started with IBM watsonx Orchestrate`](https://www.ibm.com/docs/en/watsonx/watson-orchestrate/base?topic=getting-started-watsonx-orchestrate).
+Reference for later: IBM docs — [`Getting started with IBM watsonx Orchestrate`](https://www.ibm.com/docs/en/watsonx/watson-orchestrate/base?topic=getting-started-watsonx-orchestrate).
 
 ### 3) Implement Four Tools (Incrementally)
 - `text_extractor.py`:

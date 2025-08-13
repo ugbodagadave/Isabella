@@ -11,9 +11,9 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-3. Create `.env` based on `.env.sample` and ensure variables are set (do not commit the `.env`). See `config/settings.py` for keys used. Reference IBM docs: [`Getting started`](https://www.ibm.com/docs/en/watsonx/watson-orchestrate/base?topic=getting-started-watsonx-orchestrate).
+3. Create `.env` based on `.env.sample` and ensure variables are set (do not commit the `.env`). See `config/settings.py` for keys used. IBM ADK is deferred to deployment.
 
-4. Place Google service credentials at `./config/google-credentials.json` (you will provide this).
+4. Place Google service credentials at `./config/google-credentials.json` (you have provided this).
 
 5. Run tests
 ```
@@ -22,5 +22,5 @@ pytest -q
 
 6. Commit and push (PowerShell)
 ```
-git add . ; git commit -m "feat: scaffold project" ; git push origin main
+git add . ; git commit -m "chore: deps update and docs" ; git push origin main
 ``` 

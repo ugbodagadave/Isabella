@@ -9,5 +9,5 @@ def test_slack_interface_import_only():
 		def handle_file_shared(self, body):
 			return "processed"
 
-	iface = SlackInterface(bot_token="x", app_token="y", signing_secret="z", controller=DummyController())
+	iface = SlackInterface(bot_token="x", app_token="y", signing_secret="z", controller=DummyController(), verify_tokens=False)
 	assert hasattr(iface, "start") 

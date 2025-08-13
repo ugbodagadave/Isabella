@@ -5,9 +5,9 @@ Current Focus:
 - Planning docs: `isabella-plan.md`, `isabella-guide.md`
 
 Next Steps:
-- Install dependencies and run tests locally
+- Install dependencies (ADK deferred) and run tests locally
 - Implement Granite client actual calls
-- Wire Google credentials (you will place file under `./config/`)
+- Google credentials present under `./config/`
 - Confirm environment variable semantics marked NEED-CONFIRM in `isabella-plan.md`
 
 Decisions:
