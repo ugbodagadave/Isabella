@@ -25,17 +25,21 @@
 - `integrations/google_sheets_api.py`
   - `GoogleSheetsClient.append_row(expense: dict) -> None`
   - `GoogleSheetsClient.query(filters: dict) -> list[dict]`
+  - `GoogleSheetsClient.create_spreadsheet(title: str) -> Any`
+  - `GoogleSheetsClient.open_worksheet(worksheet_name: str) -> Any`
 - `integrations/slack_api.py`
   - `SlackApi.post_message(channel: str, text: str)`
+  - `SlackApi.upload_file(channel: str, file_path: str, title: str | None = None)`
 
 ## Models
 - `models/granite_client.py`
-  - `GraniteClient.generate(prompt: str) -> str` (NotImplemented for local tests; must be mocked)
+  - `GraniteClient.build_request(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> dict`
+  - `GraniteClient.generate(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> str` (NotImplemented for local tests; must be mocked)
   - `GraniteClient.parse_json(text: str) -> Any`
 
 ## Test Coverage Notes
 - Unit tests mock external services: OCR, Granite, Slack, Google Sheets
 - Integration-like tests validate:
   - Google Sheets row mapping and query passthrough
-  - Slack API message posting
+  - Slack API message posting and file upload
   - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append 

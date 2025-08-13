@@ -24,6 +24,17 @@ class GoogleSheetsClient:
 		ss = self._gc.open_by_key(self.settings.google_sheets.spreadsheet_id)
 		self._sheet = ss.worksheet(self.settings.google_sheets.worksheet_name)
 
+	def create_spreadsheet(self, title: str) -> Any:
+		if self._gc is None:
+			self.connect()
+		return self._gc.create(title)
+
+	def open_worksheet(self, worksheet_name: str) -> Any:
+		if self._gc is None:
+			self.connect()
+		ss = self._gc.open_by_key(self.settings.google_sheets.spreadsheet_id)
+		return ss.worksheet(worksheet_name)
+
 	def append_row(self, expense: Dict[str, Any]) -> None:
 		if self._sheet is None:
 			self.connect()

@@ -1,13 +1,12 @@
 # Active Context
 
 Current Focus:
-- M1 tooling solidity: extraction, processing, sheets, and slack orchestration with mocks
-- Added schema validation in `ReceiptProcessor` and preprocessing/error handling in `TextExtractor`
+- M2 Integrations: expand Granite client interface; extend Google Sheets and Slack clients; keep tests mocked
 
 Next Steps:
-- Maintain mocks for Granite/Slack/Sheets in unit tests; keep ADK out until deployment
-- Review NEED-CONFIRM env semantics in `isabella-plan.md` as needed
+- Maintain mocks for external services; no live network calls in tests
+- Proceed to end-to-end flow refinements in M3 after M2 solidifies
 
 Decisions:
-- Validate receipts against `data/schemas/receipt_schema.json` and raise on invalid
-- Keep Slack token verification disabled in tests; simulate handlers with a fake app 
+- Keep `GraniteClient.generate` unimplemented locally; rely on mocks
+- Extend integrations with helper methods to simplify orchestration 

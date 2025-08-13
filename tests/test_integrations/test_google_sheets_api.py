@@ -16,6 +16,7 @@ def test_google_sheets_client_append_and_query():
 
 	fake_gc = MagicMock()
 	fake_gc.open_by_key = MagicMock(return_value=fake_ss)
+	fake_gc.create = MagicMock(return_value={"spreadsheetId": "abc"})
 
 	with patch("integrations.google_sheets_api.Credentials.from_service_account_file", return_value=object()) as mock_creds, \
 		 patch("integrations.google_sheets_api.gspread.authorize", return_value=fake_gc) as mock_auth:
@@ -39,4 +40,13 @@ def test_google_sheets_client_append_and_query():
 
 		# Query returns records from worksheet
 		records = client.query({})
-		assert records == fake_records 
+		assert records == fake_records
+
+		# Create spreadsheet helper
+		created = client.create_spreadsheet("Title")
+		assert created == {"spreadsheetId": "abc"}
+		fake_gc.create.assert_called_once_with("Title")
+
+		# Open worksheet helper
+		ws = client.open_worksheet("Expenses")
+		assert ws is fake_worksheet 
