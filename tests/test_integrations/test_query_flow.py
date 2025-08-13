@@ -1,5 +1,6 @@
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from datetime import date
 
 from tools.query_analyzer import QueryAnalyzer
 from tools.controller import Controller
@@ -75,4 +76,32 @@ def test_controller_handle_query_table_search():
 	assert "2024-01-10 | ACME | 10.00 | Office Supplies" in table
 	assert "2024-04-05 | ACME | 25.00 | Travel & Transportation" in table
 	# Should not include vendor Other
-	assert "Other" not in table 
+	assert "Other" not in table
+
+
+def test_controller_period_last_month_normalization():
+	granite = MagicMock()
+	granite.generate.return_value = json.dumps({
+		"query_type": "summary",
+		"time_range": {"start_date": None, "end_date": None, "period": "last_month"},
+		"filters": {},
+		"response_format": "summary",
+	})
+	granite.parse_json.side_effect = lambda t: json.loads(t)
+	qa = QueryAnalyzer(granite)
+
+	# Freeze today to 2024-02-15, so last_month is Jan 2024
+	with patch("tools.controller.date") as mock_date:
+		mock_date.today.return_value = date(2024, 2, 15)
+		mock_date.side_effect = lambda *args, **kwargs: date(*args, **kwargs)
+
+		sheets = MagicMock(spec=SheetsManager)
+		sheets.query_expenses.return_value = [
+			{"date": "2024-01-10", "category": "Office Supplies", "vendor": "ACME", "amount": 10},
+			{"date": "2024-02-01", "category": "Office Supplies", "vendor": "ACME", "amount": 99},
+		]
+
+		controller = Controller(text_extractor=MagicMock(spec=TextExtractor), receipt_processor=MagicMock(spec=ReceiptProcessor), sheets_manager=sheets, query_analyzer=qa)
+		msg = controller.handle_query("sum last month")
+		assert "Summary:" in msg
+		assert "10.00" in msg 

@@ -27,7 +27,7 @@
   - `Controller.handle_file_shared(body: dict) -> dict`
     - Orchestrates OCR → LLM → schema validation → Sheets append with duplicate detection
   - `Controller.handle_query(text: str) -> str`
-    - Uses `QueryAnalyzer` to derive filters; supports time range filtering; returns vendor breakdown in summaries; renders a simple table for search requests
+    - Uses `QueryAnalyzer` to derive filters; supports time range filtering (including periods: last_month, this_month, this_year); returns vendor breakdown in summaries (limited by TOP_VENDORS_LIMIT); renders a simple table for search requests
 
 ## Integrations
 - `integrations/google_sheets_api.py`
@@ -46,10 +46,14 @@
   - `GraniteClient.generate(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> str` (NotImplemented for local tests; must be mocked)
   - `GraniteClient.parse_json(text: str) -> Any`
 
+## Settings
+- `config/settings.py`
+  - `TOP_VENDORS_LIMIT` (env int, default 5): limits vendor breakdown entries in summaries
+
 ## Test Coverage Notes
 - Unit tests mock external services: OCR, Granite, Slack, Google Sheets
 - Integration-like tests validate:
   - Google Sheets row mapping and query passthrough
   - Slack API message posting and file upload
   - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append
-  - Query flow: analyzer intent parsing; controller summary totals, vendor breakdown, table rendering 
+  - Query flow: analyzer intent parsing; controller summary totals, vendor breakdown, table rendering; period normalization 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, List
 import logging
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -39,8 +39,8 @@ class Controller:
 			vendor_totals: Dict[str, float] = defaultdict(float)
 			for r in filtered:
 				vendor_totals[str(r.get("vendor", "Unknown"))] += float(r.get("amount", 0) or 0)
-			# Top 5 vendors by spend
-			top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:5]
+			limit = max(1, int(self.settings.rules.top_vendors_limit or 5))
+			top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:limit]
 			vendors_str = "; ".join(f"{v}: {amt:.2f}" for v, amt in top_vendors) if top_vendors else "None"
 			return f"Summary: {count} expenses totaling {total:.2f}. Vendors: {vendors_str}"
 		elif query_type == "search" and response_format in {"table", "detailed"}:
@@ -60,13 +60,32 @@ class Controller:
 			]))
 		return "\n".join(lines)
 
+	def _normalize_period(self, time_range: Dict[str, Any]) -> Dict[str, Any]:
+		period = (time_range or {}).get("period")
+		if not period:
+			return time_range or {}
+		today = date.today()
+		if period == "last_month":
+			first_this_month = today.replace(day=1)
+			last_month_end = first_this_month - timedelta(days=1)
+			last_month_start = last_month_end.replace(day=1)
+			return {"start_date": last_month_start.strftime("%Y-%m-%d"), "end_date": last_month_end.strftime("%Y-%m-%d"), "period": period}
+		if period == "this_month":
+			first_this_month = today.replace(day=1)
+			return {"start_date": first_this_month.strftime("%Y-%m-%d"), "end_date": today.strftime("%Y-%m-%d"), "period": period}
+		if period == "this_year":
+			first_this_year = today.replace(month=1, day=1)
+			return {"start_date": first_this_year.strftime("%Y-%m-%d"), "end_date": today.strftime("%Y-%m-%d"), "period": period}
+		return time_range or {}
+
 	def _apply_filters(self, rows: List[Dict[str, Any]], filters: Dict[str, Any], time_range: Dict[str, Any]) -> List[Dict[str, Any]]:
 		categories = set((filters or {}).get("categories") or [])
 		vendors = set((filters or {}).get("vendors") or [])
 		min_amount = (filters or {}).get("min_amount")
 		max_amount = (filters or {}).get("max_amount")
-		start_date_str = (time_range or {}).get("start_date")
-		end_date_str = (time_range or {}).get("end_date")
+		tr = self._normalize_period(time_range or {})
+		start_date_str = tr.get("start_date")
+		end_date_str = tr.get("end_date")
 
 		def parse_row_date(value: Any) -> Optional[date]:
 			try:

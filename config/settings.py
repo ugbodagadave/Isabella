@@ -55,6 +55,7 @@ class BusinessRules:
 	auto_categorization_enabled: bool = True
 	duplicate_detection_enabled: bool = True
 	require_approval: bool = False
+	top_vendors_limit: int = 5
 
 
 @dataclass
@@ -103,6 +104,7 @@ def load_settings() -> Settings:
 		auto_categorization_enabled=getenv_bool("AUTO_CATEGORIZATION_ENABLED", True),
 		duplicate_detection_enabled=getenv_bool("DUPLICATE_DETECTION_ENABLED", True),
 		require_approval=getenv_bool("REQUIRE_APPROVAL", False),
+		top_vendors_limit=getenv_int("TOP_VENDORS_LIMIT", 5),
 	)
 
 	return Settings(
