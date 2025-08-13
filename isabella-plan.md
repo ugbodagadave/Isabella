@@ -16,9 +16,39 @@ Reference: IBM watsonx Orchestrate docs [`Getting started`](https://www.ibm.com/
 
 ---
 
+## Completed (M0–M1)
+- Repository scaffolded with all directories, configs, schemas, docs, and tests
+- `.gitignore`, `agent.yaml`, `config/` seeded; Memory Bank established
+- Tooling stubs implemented with robust unit tests and mocks (no live calls)
+- `TextExtractor` with image/PDF paths, preprocessing hooks, and error handling
+- `ReceiptProcessor` with Granite prompt, JSON parsing, and schema validation (`data/schemas/receipt_schema.json`)
+- `SheetsManager` basic append/query with logging; Google client wrapper ready
+- `SlackInterface` handlers for `message` and `file_shared` with tests using a fake app
+- Integration-like tests added: Google Sheets mapping, Slack API post, and end-to-end mocked flow
+- Docs updated (`docs/api_reference.md`, `docs/setup.md`); Memory Bank updated
+- All tests green locally via `pytest`
+
+## Pending (M2–M5)
+- M2 — Integrations (clients + tests)
+  - Granite client wiring plan (still mocked in tests; no live calls)
+  - Expand Google Sheets and Slack client behaviors and test surfaces as needed
+  - Keep all external interactions mocked in tests
+- M3 — End-to-End Receipt Flow
+  - Slack upload → OCR → LLM extraction → Sheets append (validate with sample)
+  - Duplicate detection and confidence handling
+  - Error handling + retries (tenacity)
+- M4 — Query Flow
+  - Natural language queries → Sheets data retrieval
+  - Response formatting (table/summary)
+- M5 — Deployment and Hardening
+  - Package/deploy via Watsonx Orchestrate ADK
+  - Observability, audit trail, manual review path
+
+---
+
 ## Milestones and Deliverables
 
-### M0 — Repository and Scaffolding (you are here)
+### M0 — Repository and Scaffolding (Completed)
 Deliverables:
 - Project folders and starter files created
 - `.env.sample` with placeholders (no secrets)
@@ -28,7 +58,7 @@ Deliverables:
 - Docs seeded in `docs/`
 - Initial commit and push to GitHub
 
-### M1 — Core Tooling (stubs + unit tests)
+### M1 — Core Tooling (Completed)
 - Implement minimal versions of:
   - `tools/text_extractor.py`
   - `tools/receipt_processor.py`
@@ -186,5 +216,4 @@ git add . ; git commit -m "feat: scaffold project and planning docs" ; git push 
 
 ## Next Actions (after this commit)
 - Confirm the NEED-CONFIRM items above
-- Add Google credentials file to `./config/` (you will provide)
-- Implement M1 tool stubs and tests 
+- Implement M2 integrations and expand tests 
