@@ -9,56 +9,29 @@
   - `TextExtractor.extract_from_pdf(pdf_path: str) -> str`
 - `tools/receipt_processor.py`
   - `ReceiptProcessor.process(receipt_text: str) -> dict`
-    - Sends prompt to Granite, expects pure JSON text
-    - Parses JSON and validates against `data/schemas/receipt_schema.json`
-    - Raises `ValueError` if model returns invalid JSON; raises schema `ValidationError` for invalid structure
+    - Sends prompt to Granite, expects pure JSON text (with fallback JSON recovery)
+    - Validates against `data/schemas/receipt_schema.json`
 - `tools/query_analyzer.py`
   - `QueryAnalyzer.analyze(user_query: str, current_date: Optional[str] = None) -> dict`
-    - Uses `QUERY_ANALYSIS_PROMPT` to produce structured query intent JSON
 - `tools/sheets_manager.py`
-  - `SheetsManager.append_expense(expense: dict) -> None`
-    - Appends a row to Google Sheets via `GoogleSheetsClient`
-  - `SheetsManager.query_expenses(filters: dict) -> list[dict]`
-    - Returns rows; filtering behavior delegated to client
+  - `SheetsManager.append_expense(expense: dict) -> None` (header-driven mapping)
+  - `SheetsManager.query_expenses(filters: dict) -> list[dict]` (resilient headers)
 - `tools/slack_interface.py`
-  - Registers handlers for `message` and `file_shared` events that delegate to controller methods
   - `SlackInterface.start() -> None`
 - `tools/controller.py`
-  - `Controller.handle_file_shared(body: dict) -> dict`
-    - Orchestrates OCR → LLM → schema validation → Sheets append with duplicate detection
-  - `Controller.handle_query(text: str) -> str`
-    - Uses `QueryAnalyzer` to derive filters; supports time range filtering (including periods: last_month, this_month, this_year); returns vendor breakdown in summaries (limited by TOP_VENDORS_LIMIT); renders a simple table for search requests
+  - Orchestrates file flow and query flow
 
 ## Integrations
 - `integrations/google_sheets_api.py`
-  - `GoogleSheetsClient.append_row(expense: dict) -> None`
-    - Maps to columns including Processed_Date and Confidence_Score
-  - `GoogleSheetsClient.query(filters: dict) -> list[dict]`
-  - `GoogleSheetsClient.create_spreadsheet(title: str) -> Any`
-  - `GoogleSheetsClient.open_worksheet(worksheet_name: str) -> Any`
+  - Header initialization from `data/templates/sheets_template.json`
+  - Canonical name mapping; blanks filled when fields are missing
 - `integrations/slack_api.py`
-  - `SlackApi.post_message(channel: str, text: str)`
-  - `SlackApi.upload_file(channel: str, file_path: str, title: str | None = None)`
+  - Post messages; optional file helpers for E2E
 
 ## Models
 - `models/granite_client.py`
-  - `GraniteClient.build_request(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> dict`
-  - `GraniteClient.generate(prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> str` (implemented for live E2E)
-  - `GraniteClient.parse_json(text: str) -> Any`
+  - Real IBM Watsonx invocation for Granite (used in E2E)
 
-## Tests
-- Live E2E: `tests/test_e2e/test_e2e_live_flow.py` (marker: `e2e`)
-  - OCR → Granite → Sheets append, posts confirmation to Slack channel
-  - Requires env vars and real credentials to be set
-
-## Settings
-- `config/settings.py`
-  - `TOP_VENDORS_LIMIT` (env int, default 5): limits vendor breakdown entries in summaries
-
-## Test Coverage Notes
-- Unit tests mock external services: OCR, Granite, Slack, Google Sheets
-- Integration-like tests validate:
-  - Google Sheets row mapping and query passthrough
-  - Slack API message posting and file upload
-  - End-to-end mocked flow: OCR -> Granite -> Schema validation -> Sheets append
-  - Query flow: analyzer intent parsing; controller summary totals, vendor breakdown, table rendering; period normalization 
+## End-to-End Flow
+- File URL or path → OCR (Tesseract) → Granite JSON → Schema validation → Google Sheets append → Slack confirmation message.
+- This mirrors deployment behavior; only the ADK wiring differs (added at M5). 

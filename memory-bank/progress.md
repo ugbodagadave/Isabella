@@ -1,7 +1,6 @@
 # Progress
 
-- M0/M1 completed with solid tools and tests.
-- M2 completed: Granite client interface, Slack upload, Sheets helpers; integration tests passing.
-- M3 finalized: controller with retries, duplicate detection, extended Sheets mapping; tests passing.
-- M4 ongoing: QueryAnalyzer in place; controller supports time range filtering (periods), vendor breakdown with limit, and table rendering; tests passing.
-- Next: richer query responses and formatting as needed. 
+- All unit/integration tests pass; live E2E verified with Google Drive receipt and Slack confirmation.
+- Header-driven Sheets mapping implemented; Slack message text updated.
+- Docs updated to reflect E2E flow and deployment parity.
+- Ready to push to GitHub. 

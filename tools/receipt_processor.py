@@ -12,6 +12,21 @@ from config.prompts import RECEIPT_EXTRACTION_PROMPT
 logger = logging.getLogger(__name__)
 
 
+def _try_extract_json_object(text: str) -> Dict[str, Any]:
+	start = text.find("{")
+	if start == -1:
+		raise json.JSONDecodeError("No JSON object braces found", text, 0)
+	# Progressively attempt to parse up to each closing brace
+	for idx in range(start + 1, len(text)):
+		if text[idx] == "}":
+			candidate = text[start:idx + 1]
+			try:
+				return json.loads(candidate)
+			except Exception:
+				continue
+	raise json.JSONDecodeError("No valid JSON object parsed from text", text, start)
+
+
 class ReceiptProcessor:
 	def __init__(self, granite_client: Any) -> None:
 		self.granite = granite_client
@@ -28,9 +43,13 @@ class ReceiptProcessor:
 		# Parse JSON returned by model
 		try:
 			parsed = self.granite.parse_json(response_text)
-		except json.JSONDecodeError as e:
-			logger.error("Granite returned invalid JSON: %s", str(e))
-			raise ValueError("Model returned invalid JSON") from e
+		except json.JSONDecodeError:
+			# Conservative fallback: extract first valid JSON object if present
+			try:
+				parsed = _try_extract_json_object(response_text)
+			except Exception as e:
+				logger.error("Granite returned invalid JSON and no recoverable object found")
+				raise ValueError("Model returned invalid JSON") from e
 
 		# Validate against schema
 		try:

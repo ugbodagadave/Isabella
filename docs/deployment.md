@@ -1,5 +1,11 @@
 # Deployment
 
+- Local development uses direct clients for OCR, Granite, Google Sheets, and Slack.
+- Deployment with IBM watsonx Orchestrate ADK wires these tools into an agent; business logic remains identical to the E2E flow:
+  - OCR → Granite → Schema validation → Sheets append → Slack confirmation.
+- Ensure environment variables in production match those in `config/settings.py`.
+- Recommended: create the target Google Sheets with the header row from `data/templates/sheets_template.json`.
+
 1. Ensure `.env` is complete. Do not commit it. Keys are read by `config/settings.py`.
 2. Verify Google credentials exist at `./config/google-credentials.json`.
 3. Install ADK and initialize:

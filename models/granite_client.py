@@ -22,6 +22,7 @@ class GraniteClient:
 	def build_request(self, prompt: str, temperature: float = 0.1, max_tokens: int = 512) -> Dict[str, Any]:
 		payload = {
 			"model_id": self.settings.watsonx.model_id,
+			"project_id": self.settings.watsonx.project_id,
 			"input": prompt,
 			"parameters": {
 				"decoding_method": "greedy",
@@ -65,7 +66,6 @@ class GraniteClient:
 			"Authorization": f"Bearer {token}",
 			"Content-Type": "application/json",
 			"Accept": "application/json",
-			"X-Project-Id": self.settings.watsonx.project_id,
 		}
 		resp = requests.post(url, headers=headers, json=payload, timeout=60)
 		resp.raise_for_status()
