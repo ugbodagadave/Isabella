@@ -1,37 +1,208 @@
 # API Reference
 
-## Tools
-- `tools/text_extractor.py`
-  - `TextExtractor.extract(path: str) -> str`
-    - Detects by extension; routes images to OCR and PDFs to text extraction
-    - Applies lightweight image preprocessing (grayscale + sharpen) before OCR
-  - `TextExtractor.extract_from_image(image_path: str) -> str`
-  - `TextExtractor.extract_from_pdf(pdf_path: str) -> str`
-- `tools/receipt_processor.py`
-  - `ReceiptProcessor.process(receipt_text: str) -> dict`
-    - Sends prompt to Granite, expects pure JSON text (with fallback JSON recovery)
-    - Validates against `data/schemas/receipt_schema.json`
-- `tools/query_analyzer.py`
-  - `QueryAnalyzer.analyze(user_query: str, current_date: Optional[str] = None) -> dict`
-- `tools/sheets_manager.py`
-  - `SheetsManager.append_expense(expense: dict) -> None` (header-driven mapping)
-  - `SheetsManager.query_expenses(filters: dict) -> list[dict]` (resilient headers)
-- `tools/slack_interface.py`
-  - `SlackInterface.start() -> None`
-- `tools/controller.py`
-  - Orchestrates file flow and query flow
+## Core Tools
+
+### Text Extractor (`tools/text_extractor.py`)
+Handles text extraction from images and PDFs using OCR and PDF parsing.
+
+**Main Methods:**
+- `extract(path: str) -> str` - Auto-detects file type and routes to appropriate extraction method
+- `extract_from_image(image_path: str) -> str` - OCR with optional preprocessing (grayscale + sharpen)
+- `extract_from_pdf(pdf_path: str) -> str` - PDF text extraction using pdfplumber
+
+**Features:**
+- Automatic file type detection by extension
+- Image preprocessing for improved OCR accuracy
+- Robust error handling with logging
+- Support for multiple image formats (PNG, JPG, etc.) and PDFs
+
+### Receipt Processor (`tools/receipt_processor.py`)
+Processes extracted text using IBM Granite 3.3 LLM and validates structured output.
+
+**Main Methods:**
+- `process(receipt_text: str) -> dict` - Sends prompt to Granite, returns validated JSON
+
+**Features:**
+- Uses prompts from `config/prompts.py`
+- Robust JSON extraction (handles extra text around JSON)
+- Schema validation against `data/schemas/receipt_schema.json`
+- Error handling for invalid JSON and validation failures
+- Confidence scoring for extraction quality
+
+### Query Analyzer (`tools/query_analyzer.py`)
+Analyzes natural language queries using Granite LLM to extract search parameters.
+
+**Main Methods:**
+- `analyze(user_query: str, current_date: Optional[str] = None) -> dict` - Parses query into structured filters
+
+**Features:**
+- Natural language understanding for expense queries
+- Support for time periods (`last_month`, `this_month`, `this_year`)
+- Category and vendor filtering
+- Amount range queries
+
+### Sheets Manager (`tools/sheets_manager.py`)
+Manages Google Sheets operations for expense data storage and retrieval.
+
+**Main Methods:**
+- `append_expense(expense: dict) -> None` - Appends expense with header-driven mapping
+- `query_expenses(filters: dict) -> list[dict]` - Queries expenses with resilient header handling
+
+**Features:**
+- Header initialization from `data/templates/sheets_template.json`
+- Canonical column name mapping
+- Automatic handling of missing fields (filled with blanks)
+- Timezone-aware date processing
+- Duplicate detection based on vendor, amount, and date
+
+### Controller (`tools/controller.py`)
+Orchestrates end-to-end receipt processing and query flows.
+
+**Main Methods:**
+- `handle_file_shared(file_info: dict) -> None` - Complete receipt processing flow
+- `handle_query(user_query: str) -> str` - Natural language query processing
+
+**Features:**
+- End-to-end orchestration with retry mechanisms
+- Duplicate detection and handling
+- Vendor breakdown and summary calculations
+- Tabular result formatting for search queries
+- Period normalization (e.g., "last_month" → concrete dates)
+
+### Slack Interface (`tools/slack_interface.py`)
+Handles Slack event registration and message routing.
+
+**Main Methods:**
+- `start() -> None` - Initializes Slack app and registers event handlers
+
+**Features:**
+- File upload event handling
+- Message event processing
+- Integration with Controller for workflow orchestration
 
 ## Integrations
-- `integrations/google_sheets_api.py`
-  - Header initialization from `data/templates/sheets_template.json`
-  - Canonical name mapping; blanks filled when fields are missing
-- `integrations/slack_api.py`
-  - Post messages; optional file helpers for E2E
 
-## Models
-- `models/granite_client.py`
-  - Real IBM Watsonx invocation for Granite (used in E2E)
+### Google Sheets API (`integrations/google_sheets_api.py`)
+Low-level client for Google Sheets operations.
+
+**Main Methods:**
+- `append_row(data: dict) -> None` - Appends row with header initialization
+- `query(filters: dict) -> list[dict]` - Queries data with filter support
+- `create_spreadsheet(title: str) -> str` - Creates new spreadsheet
+- `open_worksheet(spreadsheet_id: str, worksheet_name: str) -> Worksheet` - Opens worksheet
+
+**Features:**
+- Automatic header initialization for empty sheets
+- Canonical column name mapping
+- Non-unique header handling
+- Service account authentication
+
+### Slack API (`integrations/slack_api.py`)
+Low-level client for Slack operations.
+
+**Main Methods:**
+- `post_message(channel: str, text: str) -> None` - Posts message to channel
+- `upload_file(channel: str, file_path: str, title: str) -> None` - Uploads file
+- `file_download_url(file_info: dict) -> str` - Gets direct download URL
+
+**Features:**
+- Bot token authentication
+- File upload and download support
+- Message posting with formatting
+
+### Granite Client (`models/granite_client.py`)
+Client for IBM Watsonx Granite 3.3 model interactions.
+
+**Main Methods:**
+- `generate(prompt: str, max_new_tokens: int = 1000) -> str` - Generates text response
+
+**Features:**
+- IBM IAM token management and caching
+- Watsonx API integration
+- Project ID handling
+- Error handling and retries
+
+## Data Schemas
+
+### Receipt Schema (`data/schemas/receipt_schema.json`)
+Defines the structure for extracted receipt data:
+```json
+{
+  "vendor": "string",
+  "date": "string (YYYY-MM-DD)",
+  "amount": "number",
+  "category": "string",
+  "description": "string",
+  "receipt_number": "string (optional)",
+  "tax_amount": "number (optional)",
+  "payment_method": "string (optional)",
+  "location": "string (optional)"
+}
+```
+
+### Sheets Template (`data/templates/sheets_template.json`)
+Defines Google Sheets column structure:
+- Date, Vendor, Amount, Category, Description, Receipt_Link
+- Payment_Method, Receipt_Number, Tax_Amount, Location
+- Processed_Date, Confidence_Score
+
+## Configuration
+
+### Settings (`config/settings.py`)
+Centralized configuration management with environment variable loading:
+- IBM Watsonx credentials and project settings
+- Google Sheets configuration
+- Slack app settings
+- OCR and processing parameters
+- Business rules and thresholds
+
+### Prompts (`config/prompts.py`)
+Centralized prompt management for LLM interactions:
+- Receipt extraction prompts
+- Query analysis prompts
+- Error handling and validation guidance
 
 ## End-to-End Flow
-- File URL or path → OCR (Tesseract) → Granite JSON → Schema validation → Google Sheets append → Slack confirmation message.
-- This mirrors deployment behavior; only the ADK wiring differs (added at M5). 
+
+### Receipt Processing Flow
+1. **Trigger:** Slack file upload or direct file path/URL
+2. **Text Extraction:** OCR (images) or PDF parsing (PDFs)
+3. **LLM Processing:** Granite 3.3 extracts structured data
+4. **Validation:** JSON schema validation with confidence scoring
+5. **Duplicate Check:** Vendor/amount/date comparison
+6. **Storage:** Append to Google Sheets with correlation ID
+7. **Confirmation:** Slack message: "✅ Your receipt has been added to Google Sheets"
+
+### Query Processing Flow
+1. **Trigger:** Natural language query in Slack
+2. **Query Analysis:** Granite 3.3 parses query into structured filters
+3. **Data Retrieval:** Query Google Sheets with filters
+4. **Processing:** Apply time ranges, calculate summaries, generate vendor breakdowns
+5. **Formatting:** Render results as text table or summary
+6. **Response:** Post formatted response to Slack
+
+### Error Handling
+- **OCR Failures:** Retry with image preprocessing
+- **LLM Errors:** JSON extraction fallback, validation error logging
+- **API Failures:** Exponential backoff with tenacity
+- **Duplicate Detection:** Manual review path for ambiguous cases
+
+## Testing
+
+### Test Categories
+- **Unit Tests:** Individual tool functionality with mocks
+- **Integration Tests:** Tool interactions with mocked external services
+- **E2E Tests:** Complete flows with real integrations (marked with `@pytest.mark.e2e`)
+
+### Test Coverage
+- All tools have comprehensive unit tests
+- Integration tests cover external service interactions
+- E2E tests validate complete production flows
+- Error scenarios and edge cases covered
+
+## Deployment Notes
+- Local development mirrors deployment behavior
+- ADK primarily handles wiring and event routing
+- All business logic remains identical between local and deployed environments
+- Environment variables control all configuration
+- No secrets in code or documentation 
