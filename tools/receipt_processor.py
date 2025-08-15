@@ -2,6 +2,7 @@ from typing import Any, Dict
 from pathlib import Path
 import json
 import logging
+import re
 
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
@@ -10,6 +11,63 @@ from config.prompts import RECEIPT_EXTRACTION_PROMPT
 
 
 logger = logging.getLogger(__name__)
+
+
+def _strip_code_fences(text: str) -> str:
+	"""
+	Remove Markdown code fences like ```json ... ``` or ``` ... ``` if present.
+	Returns the inner content if fences are found; otherwise returns original text.
+	"""
+	if "```" not in text:
+		return text
+	# Prefer fenced json blocks
+	m = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+	if m:
+		return m.group(1).strip()
+	return text
+
+
+def _extract_balanced_json_object(text: str) -> Dict[str, Any]:
+	"""
+	Extract the first balanced JSON object from text, ignoring braces within quoted strings.
+	Raises json.JSONDecodeError if none found or if parsing fails.
+	"""
+	clean = _strip_code_fences(text)
+	in_string: str | None = None
+	escape = False
+	start_idx = -1
+	depth = 0
+	for idx, ch in enumerate(clean):
+		if escape:
+			escape = False
+			continue
+		if ch == "\\":
+			escape = True
+			continue
+		if ch in {'"', "'"}:
+			if in_string is None:
+				in_string = ch
+			elif in_string == ch:
+				in_string = None
+			continue
+		if in_string is not None:
+			continue
+		if ch == "{":
+			if depth == 0:
+				start_idx = idx
+			depth += 1
+		elif ch == "}":
+			if depth > 0:
+				depth -= 1
+				if depth == 0 and start_idx != -1:
+					candidate = clean[start_idx:idx + 1]
+					try:
+						return json.loads(candidate)
+					except Exception:
+						# As a last resort, remove raw control chars and retry once
+						sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", candidate)
+						return json.loads(sanitized)
+	raise json.JSONDecodeError("No balanced JSON object found", clean, 0)
 
 
 def _try_extract_json_object(text: str) -> Dict[str, Any]:
@@ -24,7 +82,8 @@ def _try_extract_json_object(text: str) -> Dict[str, Any]:
 				return json.loads(candidate)
 			except Exception:
 				continue
-	raise json.JSONDecodeError("No valid JSON object parsed from text", text, start)
+	# Fall back to balanced parser that ignores braces in strings and strips fences
+	return _extract_balanced_json_object(text)
 
 
 class ReceiptProcessor:

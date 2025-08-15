@@ -24,7 +24,7 @@ Processes extracted text using IBM Granite 3.3 LLM and validates structured outp
 
 **Features:**
 - Uses prompts from `config/prompts.py`
-- Robust JSON extraction (handles extra text around JSON)
+- Robust JSON extraction (handles extra text around JSON, Markdown code fences, braces in strings)
 - Schema validation against `data/schemas/receipt_schema.json`
 - Error handling for invalid JSON and validation failures
 - Confidence scoring for extraction quality
@@ -122,6 +122,7 @@ Client for IBM Watsonx Granite 3.3 model interactions.
 - Watsonx API integration
 - Project ID handling
 - Error handling and retries
+- JSON sanitation in `parse_json`: strips Markdown fences and control characters before parsing
 
 ## Data Schemas
 

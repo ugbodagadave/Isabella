@@ -80,4 +80,14 @@ class GraniteClient:
 		return data.get("generated_text") or json.dumps(data)
 
 	def parse_json(self, text: str) -> Any:
-		return json.loads(text) 
+		# Trim common Markdown fences and hints
+		clean = text.strip()
+		if clean.startswith("```") and clean.endswith("```"):
+			clean = clean.strip("`")
+			# Remove possible leading language tag like json\n
+			first_newline = clean.find("\n")
+			if first_newline != -1:
+				clean = clean[first_newline + 1 :].strip()
+		# Remove raw control characters that break json.loads
+		clean = "".join(ch for ch in clean if ch >= " " or ch in "\t\n\r")
+		return json.loads(clean) 
