@@ -44,7 +44,7 @@ def main() -> None:
 		app_token=settings.slack.app_token,  # Socket Mode
 		signing_secret=settings.slack.signing_secret,
 		controller=controller,
-		verify_tokens=False,
+		verify_tokens=True,
 	)
 	# Blocking start; run this in a dedicated terminal
 	slack.start()

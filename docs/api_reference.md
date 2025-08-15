@@ -79,6 +79,7 @@ Handles Slack event registration and message routing.
 - File upload event handling
 - Message event processing
 - Integration with Controller for workflow orchestration
+- Safe text responses for Slack: in both production and test modes, handlers always send a valid `text` string. Status mapping for file uploads: `appended` → "✅ Your receipt has been added to Google Sheets", `duplicate` → "⚠️ Possible duplicate detected. Sent for review.", other/error → "❌ Could not process the receipt. Please try again or contact support."
 
 ## Integrations
 

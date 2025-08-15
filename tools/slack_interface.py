@@ -38,7 +38,16 @@ class SlackInterface:
 			# In unit tests (verify_tokens=False), bypass Slack API calls and pass through
 			if self._test_mode:
 				result = self.controller.handle_file_shared(body)
-				say(result)
+				if isinstance(result, str):
+					say(result)
+				else:
+					status = (result or {}).get("status")
+					if status == "appended":
+						say("✅ Your receipt has been added to Google Sheets")
+					elif status == "duplicate":
+						say("⚠️ Possible duplicate detected. Sent for review.")
+					else:
+						say("❌ Could not process the receipt. Please try again or contact support.")
 				return
 			# Slack sends a minimal payload; fetch full file info via WebClient
 			try:

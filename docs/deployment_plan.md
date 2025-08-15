@@ -234,6 +234,7 @@ Audit trail
   - Check `orchestrate server logs | cat`
   - Verify `orchestrate env show active` prints `local`
   - Confirm ngrok is pointing to 4321 and events are hitting `/slack/events`
+  - If Slack logs show `no_text` on `chat.postMessage`, update to latest code and ensure the Socket Mode listener is started with `verify_tokens=True` (see `tools/slack_socket_runner.py`).
 
 ---
 

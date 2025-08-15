@@ -192,6 +192,7 @@ orchestrate server logs
 2. **Slack authentication**: Verify bot token and app token permissions
 3. **Granite model access**: Check Watsonx API key and project access
 4. **Google Sheets permissions**: Verify service account has write access
+5. **Slack API error `no_text` on chat.postMessage**: Update to latest code, ensure `verify_tokens=True` in `tools/slack_socket_runner.py`, then restart the Socket Mode listener. The app now always sends a proper `text` string in both production and test modes.
 
 ### Debug Commands
 ```powershell

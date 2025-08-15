@@ -53,6 +53,7 @@
   - Socket Mode listener created at `tools/slack_socket_runner.py`
   - `tools/slack_interface.py` enhanced for file download via Slack WebClient
   - File processing: `files_info` → `url_private_download` with Bearer token → temp file → controller
+  - Safe Slack responses: handlers always send a valid `text` string; test mode maps status to confirmation/error text
   - Socket Mode eliminates need for ngrok/public HTTP endpoints
 
 - **End-to-End Production Flow:** Complete pipeline validated and operational

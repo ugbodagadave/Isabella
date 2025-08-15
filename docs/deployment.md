@@ -266,7 +266,7 @@ After deployment, run these validation tests:
 
 ### Common Issues
 - **ADK Connection Failures:** Verify credentials and permissions
-- **Slack Event Issues:** Check app scopes and event subscriptions
+- **Slack Event Issues:** Check app scopes and event subscriptions. If Slack returns `no_text` on `chat.postMessage`, ensure the listener uses `verify_tokens=True` and update to latest code which ensures `text` is always provided.
 - **Google Sheets Errors:** Verify service account permissions
 - **Granite API Errors:** Check Watsonx project access and model availability
 

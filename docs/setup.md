@@ -127,7 +127,7 @@ git push origin main
 - **OCR failures:** Ensure Tesseract is installed and `TESSERACT_CMD` is correct
 - **Granite API errors:** Verify `WATSONX_API_KEY` and `WATSONX_PROJECT_ID`
 - **Google Sheets errors:** Check service account permissions and spreadsheet access
-- **Slack errors:** Verify bot token and app permissions
+- **Slack errors:** Verify bot token and app permissions. If you see Slack `no_text` errors in logs, ensure you are on the latest code and that `verify_tokens=True` in `tools/slack_socket_runner.py` (production mode). Restart the listener and retry.
 
 ### Debug Mode
 Enable debug logging by setting log level in your environment or code.
