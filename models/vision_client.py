@@ -13,9 +13,8 @@ logger = logging.getLogger(__name__)
 
 class VisionClient:
 	"""
-	Thin client for IBM watsonx multimodal (vision-instruct) models.
-	Currently implements IAM token handling and a placeholder transcribe call.
-	If the backend rejects the request, callers should fallback to classic OCR.
+	Thin client for IBM watsonx multimodal (vision-instruct) models using the chat API.
+	Sends images as base64 in message content. Falls back to text-generation if chat is unavailable.
 	"""
 
 	def __init__(self, model_id: str, temperature: float = 0.0, max_tokens: int = 2048) -> None:
@@ -47,24 +46,61 @@ class VisionClient:
 		self._iam_token_exp = now + expires_in
 		return self._iam_token  # type: ignore[return-value]
 
+	def _headers(self, token: str) -> Dict[str, str]:
+		return {
+			"Authorization": f"Bearer {token}",
+			"Content-Type": "application/json",
+			"Accept": "application/json",
+		}
+
 	def transcribe(self, images: List[bytes], instruction: str) -> str:
 		"""
-		Attempt to transcribe text from images using the vision-instruct model.
-		Note: Exact watsonx multimodal payloads may vary by deployment; if this
-		request fails at runtime, callers should catch and fallback to OCR.
+		Transcribe text from images using the chat multimodal endpoint.
+		Falls back to text-generation if chat is not available.
 		"""
 		token = self._ensure_token()
-		url = f"{self.settings.watsonx.url.rstrip('/')}/ml/v1/text/generation?version=2023-05-29"
-		# Encode images to base64 to pass as part of input context if backend allows.
+		base_url = self.settings.watsonx.url.rstrip('/')
+		chat_url = f"{base_url}/ml/v1/text/chat?version=2023-05-29"
+		# Build chat-style messages with input_text + input_image parts
+		contents: List[Dict[str, Any]] = [{"type": "input_text", "text": instruction}]
+		for img in images:
+			b64 = base64.b64encode(img).decode("utf-8")
+			contents.append({
+				"type": "input_image",
+				"mime_type": "image/jpeg",
+				"data": b64,
+			})
+		payload: Dict[str, Any] = {
+			"model_id": self.model_id,
+			"project_id": self.settings.watsonx.project_id,
+			"messages": [{"role": "user", "content": contents}],
+			"parameters": {
+				"decoding_method": "greedy",
+				"temperature": self.temperature,
+				"max_new_tokens": self.max_tokens,
+			},
+		}
+		try:
+			resp = requests.post(chat_url, headers=self._headers(token), json=payload, timeout=60)
+			resp.raise_for_status()
+			data = resp.json()
+			results = data.get("results") or []
+			if isinstance(results, list) and results:
+				text = results[0].get("generated_text") or results[0].get("output_text")
+				if text:
+					return str(text).strip()
+		except Exception as e:
+			logger.warning("Vision chat endpoint failed; falling back to text-generation: %s", e)
+		# Fallback to text-generation with a compact inline base64 summary (best-effort)
+		gen_url = f"{base_url}/ml/v1/text/generation?version=2023-05-29"
 		encoded_images = [base64.b64encode(img).decode("utf-8") for img in images]
 		prompt = (
 			"You are a receipt OCR engine. Transcribe the receipt exactly as printed.\n"
 			"Return ONLY the transcribed text. No explanations. No markdown.\n"
-			"If illegible, use '?' for characters.\n"
-			"Images (base64):\n" + "\n".join(f"[IMAGE_BASE64]: {b64[:256]}..." for b64 in encoded_images) + "\n\n"
-			+ instruction
+			"For each image below (base64), read and transcribe.\n"
+			+ "\n".join(f"[IMAGE_BASE64_BEGIN]{b64[:2048]}[...trimmed]" for b64 in encoded_images)
 		)
-		payload: Dict[str, Any] = {
+		gen_payload: Dict[str, Any] = {
 			"model_id": self.model_id,
 			"project_id": self.settings.watsonx.project_id,
 			"input": prompt,
@@ -74,12 +110,7 @@ class VisionClient:
 				"max_new_tokens": self.max_tokens,
 			},
 		}
-		headers = {
-			"Authorization": f"Bearer {token}",
-			"Content-Type": "application/json",
-			"Accept": "application/json",
-		}
-		resp = requests.post(url, headers=headers, json=payload, timeout=45)
+		resp = requests.post(gen_url, headers=self._headers(token), json=gen_payload, timeout=60)
 		resp.raise_for_status()
 		data = resp.json()
 		results = data.get("results") or []
