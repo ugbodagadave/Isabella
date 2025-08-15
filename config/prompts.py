@@ -11,11 +11,11 @@ REQUIRED FIELDS:
 
 OPTIONAL FIELDS (if clearly available):
 - payment_method: Payment type (Cash, Credit, Debit, etc.)
-- receipt_number: Transaction/receipt number
+- receipt_number: Transaction / ticket / invoice number. Look for labels like TC#, TR#, ID#, INV#, Invoice #, Receipt #. Use the value closest to the header or totals section. Accept 4–25 char mixed-case strings of letters, digits, dashes.
 - tax_amount: Tax amount if separately shown
-- location: Store location/address
-- description: Brief description of purchase
-- items: Array of purchased items (for detailed receipts)
+- location: Full store address on one line if possible (street, city, state/province, postal code, country if present). Combine multiple header lines with a comma.
+- description: If 1-3 item lines exist, join their names with "; ". If >3 items or the list is long, use a concise phrase like "Various grocery items" or "Office supplies; 5 items".
+- items: Array of purchased items (name and optional price / qty) when clearly listed.
 
 EXPENSE CATEGORIES:
 - Office Supplies
@@ -30,21 +30,24 @@ EXPENSE CATEGORIES:
 - Other Business Expenses
 
 PROCESSING RULES:
-1. Clean vendor names: remove extra spaces, fix capitalization, expand abbreviations
-2. Determine the vendor ONLY from the receipt text provided. Prefer the prominent header at the top; do not guess from prior patterns or examples.
-3. If the header clearly shows variants like "WAL-MART" or "WALMART", normalize vendor to "Walmart". Apply similar obvious normalizations.
-4. If the vendor cannot be confidently determined from the text, set vendor to "Unknown" (do not substitute another brand).
-5. For ambiguous dates, use context clues or receipt layout
-6. Choose the most specific appropriate category
-7. If amount is unclear, extract the largest clearly visible total
-8. Handle multiple currencies by noting the currency type
-9. Return ONLY valid JSON - no explanations or additional text
-10. Do not carry over any context from prior tasks; rely exclusively on RECEIPT TEXT below.
+1. Clean vendor names: remove extra spaces, fix capitalization, expand abbreviations (e.g., WAL*MART → Walmart).
+2. Determine the vendor ONLY from the receipt text provided. Prefer the most prominent header line; do not infer from previous receipts.
+3. Normalize obvious variants (e.g., "WAL-MART", "WALMART" → "Walmart").
+4. If the vendor cannot be confidently determined from the text, set vendor to "Unknown".
+5. For ambiguous dates, pick the one near TOTAL / header; format YYYY-MM-DD.
+6. Choose the most specific appropriate category.
+7. If multiple totals appear, use the largest value that is explicitly labelled TOTAL / AMOUNT DUE / CASH TEND etc.
+8. Receipt number: prefer a labelled value (TC#, TR#, ID#, etc.). If multiple, choose the one closest to totals section; exclude barcodes.
+9. Location: Concatenate consecutive header lines that form the store address (stop before phone or manager lines).
+10. Description: summarise items as per OPTIONAL FIELDS spec.
+11. Handle multiple currencies by noting the currency symbol when present.
+12. Return ONLY valid JSON – no markdown, no comments, no trailing commas.
+13. Do not carry over any context from prior tasks; rely exclusively on RECEIPT TEXT below.
 
 RECEIPT TEXT:
 {receipt_text}
 
-JSON RESPONSE:
+JSON RESPONSE (no markdown):
 """
 
 
