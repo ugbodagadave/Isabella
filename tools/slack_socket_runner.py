@@ -23,38 +23,9 @@ def main() -> None:
 	logging.basicConfig(level=logging.INFO)
 	settings = load_settings()
 
-	text_extractor = None
-	# Inline backend selection for this phase
-	OCR_BACKEND = os.getenv("OCR_BACKEND", "ocr").lower() if False else "ocr"
-	try:
-		if OCR_BACKEND == "vision":
-			from tools.vision_text_extractor import VisionTextExtractor
-			text_extractor = VisionTextExtractor()
-		elif OCR_BACKEND == "hybrid":
-			from tools.vision_text_extractor import VisionTextExtractor
-			from tools.text_extractor import TextExtractor as ClassicExtractor
-			class HybridExtractor:
-				def __init__(self) -> None:
-					self.vision = VisionTextExtractor()
-					self.ocr = ClassicExtractor(tesseract_cmd=settings.ocr.tesseract_cmd, lang=settings.ocr.tesseract_lang)
-				def extract(self, path: str) -> str:
-					try:
-						return self.vision.extract(path)
-					except Exception:
-						return self.ocr.extract(path)
-			text_extractor = HybridExtractor()
-		else:
-			from tools.text_extractor import TextExtractor as ClassicExtractor
-			text_extractor = ClassicExtractor(
-				tesseract_cmd=settings.ocr.tesseract_cmd,
-				lang=settings.ocr.tesseract_lang,
-			)
-	except Exception:
-		from tools.text_extractor import TextExtractor as ClassicExtractor
-		text_extractor = ClassicExtractor(
-			tesseract_cmd=settings.ocr.tesseract_cmd,
-			lang=settings.ocr.tesseract_lang,
-		)
+	# Vision-only text extractor
+	from tools.vision_text_extractor import VisionTextExtractor
+	text_extractor = VisionTextExtractor()
 
 	granite = GraniteClient()
 	receipt_processor = ReceiptProcessor(granite)

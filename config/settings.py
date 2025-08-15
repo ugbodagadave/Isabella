@@ -42,7 +42,7 @@ class SlackConfig:
 
 @dataclass
 class OcrConfig:
-	tesseract_cmd: str
+	tesseract_cmd: str = ""
 	tesseract_lang: str = "eng"
 	ocr_confidence_threshold: int = 70
 	image_preprocessing: bool = True
@@ -91,6 +91,7 @@ def load_settings() -> Settings:
 		default_channel_id=os.getenv("SLACK_CHANNEL_ID"),
 	)
 
+	# OCR values remain optional; vision extractor will ignore
 	ocr = OcrConfig(
 		tesseract_cmd=os.getenv("TESSERACT_CMD", ""),
 		tesseract_lang=os.getenv("TESSERACT_LANG", "eng"),
