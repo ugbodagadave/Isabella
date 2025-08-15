@@ -3,18 +3,18 @@
 ## Core Tools
 
 ### Text Extractor (`tools/text_extractor.py`)
-Handles text extraction from images and PDFs using OCR and PDF parsing.
+Handles text extraction from images and PDFs. Default backend is the IBM watsonx chat vision model; legacy Tesseract/PDF parsing remains available for tests.
 
 **Main Methods:**
-- `extract(path: str) -> str` - Auto-detects file type and routes to appropriate extraction method
-- `extract_from_image(image_path: str) -> str` - OCR with optional preprocessing (grayscale + sharpen)
-- `extract_from_pdf(pdf_path: str) -> str` - PDF text extraction using pdfplumber
+- `extract(path: str) -> str` - Detects URL/file; for images and PDFs uses vision chat by default; legacy OCR paths available
+- `extract_from_image(image_path: str) -> str` - Vision chat transcription when backend is `vision`; otherwise Tesseract
+- `extract_from_pdf(pdf_path: str) -> str` - PDF rasterization to images then vision chat; legacy text extraction path retained
 
 **Features:**
-- Automatic file type detection by extension
-- Image preprocessing for improved OCR accuracy
+- Vision-first extraction via `meta-llama/llama-3-2-11b-vision-instruct`
+- Data URI image embedding to chat API; supports public URLs when permitted
+- Optional legacy OCR for tests: set `OCR_BACKEND=tesseract`
 - Robust error handling with logging
-- Support for multiple image formats (PNG, JPG, etc.) and PDFs
 
 ### Receipt Processor (`tools/receipt_processor.py`)
 Processes extracted text using IBM Granite 3.3 LLM and validates structured output.
@@ -22,24 +22,17 @@ Processes extracted text using IBM Granite 3.3 LLM and validates structured outp
 **Main Methods:**
 - `process(receipt_text: str) -> dict` - Sends prompt to Granite, returns validated JSON
 
-**Features:**
+**Notable Behavior:**
+- Logs a redacted preview of the first 10 lines of the transcript used for structuring
 - Uses prompts from `config/prompts.py`
 - Robust JSON extraction (handles extra text around JSON, Markdown code fences, braces in strings)
 - Schema validation against `data/schemas/receipt_schema.json`
-- Error handling for invalid JSON and validation failures
-- Confidence scoring for extraction quality
 
 ### Query Analyzer (`tools/query_analyzer.py`)
 Analyzes natural language queries using Granite LLM to extract search parameters.
 
 **Main Methods:**
 - `analyze(user_query: str, current_date: Optional[str] = None) -> dict` - Parses query into structured filters
-
-**Features:**
-- Natural language understanding for expense queries
-- Support for time periods (`last_month`, `this_month`, `this_year`)
-- Category and vendor filtering
-- Amount range queries
 
 ### Sheets Manager (`tools/sheets_manager.py`)
 Manages Google Sheets operations for expense data storage and retrieval.

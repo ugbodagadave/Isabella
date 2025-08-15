@@ -13,6 +13,7 @@ from tools.controller import Controller
 from tools.receipt_processor import ReceiptProcessor
 from tools.sheets_manager import SheetsManager
 from tools.slack_interface import SlackInterface
+from tools.text_extractor import TextExtractor
 
 
 def main() -> None:
@@ -23,9 +24,11 @@ def main() -> None:
 	logging.basicConfig(level=logging.INFO)
 	settings = load_settings()
 
-	# Vision-only text extractor
-	from tools.vision_text_extractor import VisionTextExtractor
-	text_extractor = VisionTextExtractor()
+	# Text extractor defaults to vision backend when OCR_BACKEND is not set
+	text_extractor = TextExtractor(
+		tesseract_cmd=settings.ocr.tesseract_cmd or None,
+		lang=settings.ocr.tesseract_lang,
+	)
 
 	granite = GraniteClient()
 	receipt_processor = ReceiptProcessor(granite)

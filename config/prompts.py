@@ -31,11 +31,15 @@ EXPENSE CATEGORIES:
 
 PROCESSING RULES:
 1. Clean vendor names: remove extra spaces, fix capitalization, expand abbreviations
-2. For ambiguous dates, use context clues or receipt layout
-3. Choose the most specific appropriate category
-4. If amount is unclear, extract the largest clearly visible total
-5. Handle multiple currencies by noting the currency type
-6. Return ONLY valid JSON - no explanations or additional text
+2. Determine the vendor ONLY from the receipt text provided. Prefer the prominent header at the top; do not guess from prior patterns or examples.
+3. If the header clearly shows variants like "WAL-MART" or "WALMART", normalize vendor to "Walmart". Apply similar obvious normalizations.
+4. If the vendor cannot be confidently determined from the text, set vendor to "Unknown" (do not substitute another brand).
+5. For ambiguous dates, use context clues or receipt layout
+6. Choose the most specific appropriate category
+7. If amount is unclear, extract the largest clearly visible total
+8. Handle multiple currencies by noting the currency type
+9. Return ONLY valid JSON - no explanations or additional text
+10. Do not carry over any context from prior tasks; rely exclusively on RECEIPT TEXT below.
 
 RECEIPT TEXT:
 {receipt_text}

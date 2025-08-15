@@ -8,7 +8,7 @@ Isabella is an AI bookkeeping agent that processes receipts via Slack, extracts 
 - IBM Watsonx account with Granite 3.3 access
 - Google Sheets API credentials
 - Slack App with bot token and event subscriptions
-- Tesseract OCR (for image processing)
+- Tesseract OCR (only required if you set `OCR_BACKEND=tesseract` for legacy OCR or tests)
 
 ## Installation
 
@@ -43,8 +43,9 @@ Create `.env` based on `.env.sample` and configure all required variables:
 - `SLACK_CHANNEL_ID` - Default channel for notifications
 
 **Vision OCR / Processing:**
-- Vision Model: `meta-llama/llama-3-2-11b-vision-instruct` (IBM watsonx chat)
-- Images sent as base64 data URIs to chat API; PDFs rasterized to images first
+- Default backend is vision via `meta-llama/llama-3-2-11b-vision-instruct` (IBM watsonx chat)
+- To force legacy OCR for tests, set `OCR_BACKEND=tesseract`
+- Images are sent as base64 data URIs to chat API; PDFs are rasterized to images first
 
 **Business Rules:**
 - `DEFAULT_CURRENCY` - Default currency (default: `USD`)
@@ -90,7 +91,7 @@ $env:E2E_RECEIPT_URL = "https://drive.google.com/uc?export=download&id=..."
 
 **E2E Test Flow:**
 1. Downloads receipt from path/URL
-2. Extracts text via OCR/PDF parsing
+2. Extracts text via vision chat (or OCR if `OCR_BACKEND=tesseract`)
 3. Processes with Granite 3.3 LLM
 4. Validates JSON against schema
 5. Appends to Google Sheets with correlation ID
@@ -122,7 +123,8 @@ git push origin main
 ## Troubleshooting
 
 ### Common Issues
-- **OCR failures:** Ensure Tesseract is installed and `TESSERACT_CMD` is correct
+- **Vision chat errors:** verify `WATSONX_API_KEY`, `WATSONX_PROJECT_ID`, and that images are sent as data URIs
+- **OCR failures (legacy):** Ensure Tesseract is installed and `TESSERACT_CMD` is correct
 - **Granite API errors:** Verify `WATSONX_API_KEY` and `WATSONX_PROJECT_ID`
 - **Google Sheets errors:** Check service account permissions and spreadsheet access
 - **Slack errors:** Verify bot token and app permissions. If you see Slack `no_text` errors in logs, ensure you are on the latest code and that `verify_tokens=True` in `tools/slack_socket_runner.py` (production mode). Restart the listener and retry.

@@ -75,10 +75,7 @@ class VisionClient:
 		user_content: List[Dict[str, Any]] = []
 		for img in images:
 			b64 = base64.b64encode(img).decode("utf-8")
-			user_content.append({
-				"type": "image_url",
-				"image_url": {"url": f"data:image/jpeg;base64,{b64}"},
-			})
+			user_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
 		user_content.append({"type": "text", "text": instruction})
 		user_msg = {"role": "user", "content": user_content}
 		payload: Dict[str, Any] = {

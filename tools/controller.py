@@ -202,6 +202,20 @@ class Controller:
 			logger.error("Transcription returned insufficient text; length=%d", len(text.strip()) if text else 0)
 			return {"status": "error", "message": "insufficient_text"}
 
+		# Log a redacted preview of the transcript used for structuring (first 10 lines)
+		try:
+			def _redact(sample: str) -> str:
+				masked = sample
+				# Mask long digit runs that look like card numbers or phone numbers
+				masked = __import__("re").sub(r"(?<!\d)\d{12,16}(?!\d)", "************", masked)
+				# Mask emails
+				masked = __import__("re").sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "***@***", masked)
+				return masked
+			preview_lines = [ln for ln in (text or "").splitlines() if ln][:10]
+			logger.info("Transcript preview (first 10 lines):\n%s", _redact("\n".join(preview_lines)))
+		except Exception:
+			pass
+
 		logger.debug("Processing receipt text; length=%d", len(text))
 		receipt = self._process_receipt_with_retry(text)
 
