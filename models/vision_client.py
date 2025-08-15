@@ -80,6 +80,22 @@ class VisionClient:
 				val = data.get(key)
 				if isinstance(val, str) and val.strip():
 					return val.strip()
+			# 4) OpenAI-style choices -> message -> content (string or list)
+			choices = data.get("choices") or []
+			if isinstance(choices, list) and choices:
+				msg = choices[0].get("message") or {}
+				content = msg.get("content")
+				if isinstance(content, str) and content.strip():
+					return content.strip()
+				if isinstance(content, list):
+					texts = []
+					for part in content:
+						if isinstance(part, dict):
+							val = part.get("text")
+							if isinstance(val, str) and val.strip():
+								texts.append(val.strip())
+					if texts:
+						return "\n".join(texts)
 		except Exception:
 			return None
 		return None
