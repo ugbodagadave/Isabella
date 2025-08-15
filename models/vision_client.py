@@ -53,12 +53,43 @@ class VisionClient:
 			"Accept": "application/json",
 		}
 
+	@staticmethod
+	def _parse_chat_text(data: Dict[str, Any]) -> Optional[str]:
+		"""Try multiple known result shapes to extract generated text from chat response."""
+		try:
+			# 1) Standard: results[0].generated_text or output_text
+			results = data.get("results") or []
+			if isinstance(results, list) and results:
+				cand = results[0].get("generated_text") or results[0].get("output_text")
+				if cand:
+					return str(cand).strip()
+				# 2) Nested message content: results[0].message.content -> list of {type,text}
+				msg = results[0].get("message") or {}
+				content = msg.get("content") or []
+				if isinstance(content, list):
+					texts = []
+					for part in content:
+						if isinstance(part, dict):
+							val = part.get("text") or part.get("output_text") or part.get("generated_text")
+							if isinstance(val, str) and val.strip():
+								texts.append(val.strip())
+					if texts:
+						return "\n".join(texts)
+			# 3) Top-level output fields
+			for key in ("generated_text", "output_text", "text"):
+				val = data.get(key)
+				if isinstance(val, str) and val.strip():
+					return val.strip()
+		except Exception:
+			return None
+		return None
+
 	def transcribe(self, images: List[bytes], instruction: str) -> str:
 		"""
 		Transcribe text from images using the chat multimodal endpoint with correct content types.
 		- Uses content parts: {"type":"text"} and {"type":"image_url"}
 		- Embeds the image via data URI in image_url
-		Falls back to text-generation if chat is not available.
+		If a valid chat response is not parsed, returns an empty string so callers can treat as insufficient.
 		"""
 		token = self._ensure_token()
 		base_url = self.settings.watsonx.url.rstrip('/')
@@ -94,48 +125,20 @@ class VisionClient:
 				logger.warning("Vision chat HTTP %s: %s", resp.status_code, resp.text[:500])
 			resp.raise_for_status()
 			data = resp.json()
-			results = data.get("results") or []
-			if isinstance(results, list) and results:
-				text = results[0].get("generated_text") or results[0].get("output_text")
-				if text:
-					return str(text).strip()
-		except Exception as e:
-			logger.warning("Vision chat endpoint failed; falling back to text-generation: %s", e)
-		# Fallback to text-generation with a compact inline base64 summary (best-effort)
-		gen_url = f"{base_url}/ml/v1/text/generation?version=2023-05-29"
-		encoded_images = [base64.b64encode(img).decode("utf-8") for img in images]
-		prompt = (
-			"You are a receipt OCR engine. Transcribe the receipt exactly as printed.\n"
-			"Return ONLY the transcribed text. No explanations. No markdown.\n"
-			"For each image below (base64), read and transcribe.\n"
-			+ "\n".join(f"[IMAGE_BASE64_BEGIN]{b64[:2048]}[...trimmed]" for b64 in encoded_images)
-		)
-		gen_payload: Dict[str, Any] = {
-			"model_id": self.model_id,
-			"project_id": self.settings.watsonx.project_id,
-			"input": prompt,
-			"temperature": self.temperature,
-			"max_tokens": self.max_tokens,
-			"top_p": 1,
-			"frequency_penalty": 0,
-			"presence_penalty": 0,
-		}
-		resp = requests.post(gen_url, headers=self._headers(token), json=gen_payload, timeout=60)
-		if resp.status_code >= 400:
-			logger.error("Vision fallback generation HTTP %s: %s", resp.status_code, resp.text[:500])
-		resp.raise_for_status()
-		data = resp.json()
-		results = data.get("results") or []
-		if isinstance(results, list) and results:
-			text = results[0].get("generated_text") or results[0].get("output_text")
+			text = self._parse_chat_text(data)
 			if text:
-				return str(text).strip()
-		return str(data) 
+				return text
+			logger.warning("Vision chat response parsed no text; keys=%s", ",".join(list(data.keys())[:10]))
+		except Exception as e:
+			logger.warning("Vision chat endpoint failed: %s", e)
+		# Do NOT fallback to text-generation with base64 markers; return empty to signal insufficiency
+		return ""
 
 
 	def transcribe_urls(self, image_urls: List[str], instruction: str) -> str:
 		"""
 		Transcribe text from one or more publicly accessible image URLs using chat API.
+		Returns empty string if parsing fails.
 		"""
 		token = self._ensure_token()
 		base_url = self.settings.watsonx.url.rstrip('/')
@@ -167,9 +170,5 @@ class VisionClient:
 			logger.warning("Vision chat HTTP %s: %s", resp.status_code, resp.text[:500])
 		resp.raise_for_status()
 		data = resp.json()
-		results = data.get("results") or []
-		if isinstance(results, list) and results:
-			text = results[0].get("generated_text") or results[0].get("output_text")
-			if text:
-				return str(text).strip()
-		return str(data) 
+		text = self._parse_chat_text(data)
+		return text or "" 

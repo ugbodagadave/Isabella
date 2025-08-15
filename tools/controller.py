@@ -202,6 +202,12 @@ class Controller:
 			logger.error("Transcription returned insufficient text; length=%d", len(text.strip()) if text else 0)
 			return {"status": "error", "message": "insufficient_text"}
 
+		# Bail out if transcript is clearly not natural text (e.g., base64 echo or placeholders)
+		upper_preview = (text[:256] or "").upper()
+		if "[IMAGE_BASE64_BEGIN" in upper_preview or upper_preview.startswith("DATA:IMAGE"):
+			logger.error("Transcript appears to be non-text content (base64/placeholder). Aborting processing.")
+			return {"status": "error", "message": "invalid_transcript"}
+
 		# Log a redacted preview of the transcript used for structuring (first 10 lines)
 		try:
 			def _redact(sample: str) -> str:
