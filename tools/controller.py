@@ -243,6 +243,20 @@ class Controller:
 			logger.error("Transcript appears to be non-text content (base64/placeholder). Aborting processing.")
 			return {"status": "error", "message": "invalid_transcript"}
 
+		# Sanitize markdown-style headings injected by vision model (e.g., '**Header**')
+		def _sanitize_md_headings(raw: str) -> str:
+			lines = []
+			for ln in raw.splitlines():
+				trim = ln.strip()
+				if trim.startswith("**") and trim.endswith("**") and len(trim) < 80:
+					# drop markdown heading lines
+					continue
+				# strip bold markers inside line
+				ln = ln.replace("**", "")
+				lines.append(ln)
+			return "\n".join(lines)
+		text = _sanitize_md_headings(text)
+
 		# Log a redacted preview of the transcript used for structuring (first 10 lines)
 		try:
 			def _redact(sample: str) -> str:
