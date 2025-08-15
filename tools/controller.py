@@ -178,6 +178,19 @@ class Controller:
 		confidence = receipt.get("confidence")
 		receipt_link = body.get("receipt_link", "")
 
+		# Override amount with reliable OCR total if found and seems plausible
+		try:
+			from tools.receipt_processor import _extract_total_from_text  # local import to avoid cycles
+			parsed_total = _extract_total_from_text(text)
+			if parsed_total is not None:
+				# Prefer the larger between model and parsed total to avoid partial sums
+				model_amt = receipt.get("amount")
+				model_amt_f = float(model_amt) if model_amt is not None else 0.0
+				if parsed_total > 0 and (model_amt is None or parsed_total >= model_amt_f * 0.95):
+					receipt["amount"] = parsed_total
+		except Exception:
+			pass
+
 		expense = {
 			"date": receipt.get("date"),
 			"vendor": receipt.get("vendor"),

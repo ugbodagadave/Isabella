@@ -86,6 +86,35 @@ def _try_extract_json_object(text: str) -> Dict[str, Any]:
 	return _extract_balanced_json_object(text)
 
 
+def _extract_total_from_text(text: str) -> float | None:
+	"""
+	Find a reliable TOTAL amount from OCR text using simple heuristics:
+	- Prefer a line containing the standalone word TOTAL (not SUBTOTAL)
+	- Use the rightmost amount-like token on that line (e.g., 38.68)
+	- Fallback to AMOUNT DUE / BALANCE DUE if present
+	Returns a float or None if no confident amount is found.
+	"""
+	lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+	amount_pattern = re.compile(r"(?<![\d])([\$€£₦]?\s?\d{1,4}(?:[.,]\d{2}))\b")
+	candidates: list[float] = []
+	for ln in lines:
+		upper = ln.upper()
+		if "SUBTOTAL" in upper:
+			continue
+		if re.search(r"\b(TOTAL|AMOUNT DUE|BALANCE DUE)\b", upper):
+			amts = amount_pattern.findall(ln)
+			if amts:
+				# choose the rightmost amount on the line
+				raw = amts[-1]
+				num = raw.replace(" ", "").lstrip("$€£₦").replace(",", ".")
+				try:
+					candidates.append(round(float(num), 2))
+				except Exception:
+					continue
+	# Return the first found candidate
+	return candidates[0] if candidates else None
+
+
 class ReceiptProcessor:
 	def __init__(self, granite_client: Any) -> None:
 		self.granite = granite_client
