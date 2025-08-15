@@ -272,7 +272,22 @@ class Controller:
 			pass
 
 		logger.debug("Processing receipt text; length=%d", len(text))
-		receipt = self._process_receipt_with_retry(text)
+		try:
+			receipt = self._process_receipt_with_retry(text)
+		except Exception as e:
+			logger.error("LLM extraction failed after retries; falling back to basic heuristics: %s", e)
+			# Basic heuristic fallback
+			receipt = {
+				"vendor": self._infer_vendor_from_text(text) or "Unknown",
+				"amount": _extract_total_from_text(text) or 0,
+				"date": (re.search(r"(\d{4}[/-]\d{2}[/-]\d{2})", text) or re.search(r"(\d{2}[/-]\d{2}[/-]\d{2,4})", text) or [None])[0] if re.search(r"\d", text) else None,
+				"category": "Other Business Expenses",
+				"description": self._infer_description_from_text(text) or "Unclassified items",
+				"location": self._infer_location_from_text(text) or "",
+				"receipt_number": None,
+			}
+			if not receipt["date"]:
+				receipt["date"] = datetime.today().strftime("%Y-%m-%d")
 
 		# Ensure confidence exists if provided by model; keep as-is otherwise
 		confidence = receipt.get("confidence")
