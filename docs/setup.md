@@ -42,11 +42,9 @@ Create `.env` based on `.env.sample` and configure all required variables:
 - `SLACK_SIGNING_SECRET` - App signing secret
 - `SLACK_CHANNEL_ID` - Default channel for notifications
 
-**OCR / Processing:**
-- `TESSERACT_CMD` - Path to tesseract executable
-- `TESSERACT_LANG` - OCR language (default: `eng`)
-- `OCR_CONFIDENCE_THRESHOLD` - Minimum confidence (default: `70`)
-- `IMAGE_PREPROCESSING` - Enable preprocessing (default: `true`)
+**Vision OCR / Processing:**
+- Vision Model: `meta-llama/llama-3-2-11b-vision-instruct` (IBM watsonx chat)
+- Images sent as base64 data URIs to chat API; PDFs rasterized to images first
 
 **Business Rules:**
 - `DEFAULT_CURRENCY` - Default currency (default: `USD`)

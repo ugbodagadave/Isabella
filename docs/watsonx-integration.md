@@ -52,7 +52,7 @@ This document provides comprehensive technical details on how IBM watsonx.ai (Gr
 **Implementation:**
 - Uses `slack-bolt` and `SocketModeHandler` for WebSocket communication
 - Loads environment variables via `python-dotenv` from project root `.env`
-- Initializes all components: TextExtractor, GraniteClient, ReceiptProcessor, GoogleSheetsClient, SheetsManager, Controller, SlackInterface
+- Initializes vision OCR (chat) for images and Granite for structuring: VisionTextExtractor/TextExtractor, GraniteClient, ReceiptProcessor, GoogleSheetsClient, SheetsManager, Controller, SlackInterface
 - Runs as blocking process for continuous event handling
 
 **Event Processing:**

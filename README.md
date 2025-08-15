@@ -60,11 +60,11 @@ orchestrate agents import -f agent.yaml
 - **IBM watsonx Orchestrate Developer Edition**: Local agent platform via Docker
 - **Slack Socket Mode**: WebSocket-based event handling (no public HTTP required)
 - **Google Sheets API**: Expense data persistence with header-driven mapping
-- **Tesseract OCR**: Text extraction from images and PDFs
+- **Vision OCR (chat API)**: Text extraction from images via `meta-llama/llama-3-2-11b-vision-instruct` (IBM watsonx chat); PDFs are rasterized to images before transcription
 
 ### Production Flow (Validated E2E)
 1. **Slack File Upload** → `file_shared` event received via Socket Mode
-2. **Text Extraction** → `tools/text_extractor.py` (OCR/PDF parsing)
+2. **Text Extraction** → vision model (images via chat API) or PDF→images→vision
 3. **AI Processing** → `tools/receipt_processor.py` (Granite 3.3 JSON extraction)
 4. **Schema Validation** → Validate against `data/schemas/receipt_schema.json`
 5. **Data Persistence** → `tools/sheets_manager.py` (Google Sheets append)
