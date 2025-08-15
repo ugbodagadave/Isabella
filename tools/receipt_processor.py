@@ -94,6 +94,21 @@ class ReceiptProcessor:
 		with open(schema_path, "r", encoding="utf-8") as f:
 			self._schema = json.load(f)
 
+	def _normalize_fields(self, parsed: Dict[str, Any]) -> Dict[str, Any]:
+		# Normalize items: allow list of strings by converting to list of {name}
+		items = parsed.get("items")
+		if isinstance(items, list):
+			normalized = []
+			for it in items:
+				if isinstance(it, str):
+					normalized.append({"name": it})
+				elif isinstance(it, dict):
+					normalized.append(it)
+				else:
+					continue
+			parsed["items"] = normalized
+		return parsed
+
 	def process(self, receipt_text: str) -> Dict[str, Any]:
 		prompt = RECEIPT_EXTRACTION_PROMPT.format(receipt_text=receipt_text)
 		logger.debug("Sending receipt text to Granite for extraction; text_length=%d", len(receipt_text))
@@ -109,6 +124,9 @@ class ReceiptProcessor:
 			except Exception as e:
 				logger.error("Granite returned invalid JSON and no recoverable object found")
 				raise ValueError("Model returned invalid JSON") from e
+
+		# Normalize fields for schema compatibility
+		parsed = self._normalize_fields(parsed)
 
 		# Validate against schema
 		try:
