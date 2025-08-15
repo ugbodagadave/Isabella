@@ -96,16 +96,7 @@ class TextExtractor:
 			raise
 
 	def extract_from_pdf(self, pdf_path: str) -> str:
-		if self.backend == "vision":
-			images = self._pdf_to_images(pdf_path)
-			instruction = (
-				"Transcribe all visible text from the attached receipt image(s).\n"
-				"Preserve line breaks, spacing for amounts, and currency symbols.\n"
-				"Return only the transcribed text."
-			)
-			text = self._vision_transcribe_images(images, instruction)
-			return (text or "").strip()
-		# legacy pdf text extraction path
+		# Extract text directly from PDF using pdfplumber (backend independent)
 		texts = []
 		try:
 			with pdfplumber.open(pdf_path) as pdf:
