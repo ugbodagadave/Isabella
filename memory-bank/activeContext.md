@@ -1,38 +1,20 @@
 # Active Context
 
 Current Focus:
-- M5 Deployment: IBM Watsonx Orchestrate ADK deployment with observability, audit trails, and manual review paths
+- M5 Deployment: Local IBM watsonx Orchestrate Developer Edition with Socket Mode Slack integration; production-like flow verified end-to-end
+
+Recent Changes:
+- ✅ Local Orchestrate Developer Edition started via Docker
+- ✅ Agent imported with `spec_version: v1` and Granite model set: `ibm/granite-3-3-8b-instruct`
+- ✅ Slack Socket Mode listener implemented at `tools/slack_socket_runner.py`
+- ✅ `tools/slack_interface.py` downloads Slack files and forwards `local_path` to controller
+- ✅ End-to-end receipt flow validated from Slack upload → OCR → Granite JSON → schema validation → Google Sheets append → Slack confirmation
+
+Operational Notes:
+- Socket Mode used (no ngrok required). If HTTP mode is preferred, use ngrok and configure `/slack/events` and `/slack/actions` URLs.
+- Logs: use `orchestrate server logs` for platform services and run the socket listener to observe Slack events.
 
 Next Steps:
-- Package tools as ADK skills with proper input/output mapping
-- Configure ADK connections for IBM Watsonx, Google Sheets, and Slack
-- Implement structured logging with correlation IDs across all components
-- Add manual review path for low-confidence or duplicate receipts
-- Deploy and validate production environment
-
-Recent Achievements:
-- ✅ M4 Completed: Query flow with natural language processing, vendor breakdowns, time range filtering, and tabular results
-- ✅ Live E2E Test Verified: Complete end-to-end flow with real integrations (Granite, Google Sheets, Slack)
-- ✅ Header-driven Sheets mapping implemented with proper column alignment
-- ✅ All tests passing (unit, integration, E2E)
-
-Key Decisions:
-- Vendor breakdown limited by `TOP_VENDORS_LIMIT` (env, default 5)
-- Period keywords supported: `last_month`, `this_month`, `this_year`
-- Manual review triggered by confidence threshold or duplicate detection
-- Structured JSON logging with correlation IDs for observability
-- Audit trail maintained in Google Sheets with processing metadata
-
-Technical Patterns:
-- LLM-first design with Granite 3.3 for receipt understanding
-- Header-driven Google Sheets mapping for resilience
-- Retry mechanisms with tenacity for external API calls
-- Schema validation for all LLM outputs
-- Environment-driven configuration via `config/settings.py`
-
-Deployment Architecture:
-- Local development mirrors production behavior
-- ADK primarily handles wiring and event routing
-- All business logic remains identical between environments
-- Observability and audit trails added in M5
-- Manual review path for production safety 
+- Add interactive manual review (Approve/Reject) buttons for low confidence/duplicates
+- Expand observability: correlation IDs and duration metrics across OCR/LLM/Sheets/Slack
+- Harden error handling and retries in the Slack runner 

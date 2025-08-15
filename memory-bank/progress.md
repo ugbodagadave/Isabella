@@ -81,3 +81,21 @@
 4. Add manual review path for production safety
 5. Deploy and validate in production environment
 6. Monitor and maintain production deployment 
+
+## What works
+- Slack file upload triggers full pipeline via Socket Mode listener (`tools/slack_socket_runner.py`)
+- OCR (Tesseract) extracts text from uploaded image/PDF
+- Granite 3.3 (`ibm/granite-3-3-8b-instruct`) returns JSON; schema validated against `data/schemas/receipt_schema.json`
+- Sheets append succeeds using header-driven mapping (`data/templates/sheets_template.json`)
+- Slack confirmation is posted: "✅ Your receipt has been added to Google Sheets"
+
+## Validation Run
+- Evidence: Slack confirmation screenshot; local runner logs show `Receipt appended to sheet: vendor=...`
+
+## What’s left
+- Manual review path with interactive Approve/Reject (currently duplicate status returns message only)
+- Structured JSON logs with correlation IDs and durations across steps (partially present)
+- Optional HTTP mode (ngrok) documentation retained; primary path is Socket Mode
+
+## Current status
+- Local Developer Edition deployment is operational; acceptance smoke test passed 

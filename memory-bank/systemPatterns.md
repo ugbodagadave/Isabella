@@ -1,48 +1,22 @@
 # System Patterns
 
 ## Core Architecture
-- **LLM-first Design:** IBM Granite 3.3 handles receipt understanding and query analysis
-- **Minimal Tools:** Four core tools with focused responsibilities
-- **Orchestration:** Controller manages end-to-end flows with retry mechanisms
-- **Environment-driven Configuration:** All settings via `config/settings.py`
+- LLM-first: Granite 3.3 for receipt understanding
+- Orchestration: Controller manages OCR → LLM → validation → Sheets → Slack
+- Runtime: Local Orchestrate Developer Edition for agent UI; Slack events handled by socket runner
 
-## Data Flow Patterns
-- **Receipt Processing:** File → OCR/PDF → Granite → Schema Validation → Sheets → Slack Confirmation
-- **Query Processing:** Natural Language → Granite Analysis → Sheets Query → Filtering → Summary → Slack Response
-- **Error Handling:** Retry with exponential backoff, graceful degradation, structured logging
+## Event Handling
+- Slack Socket Mode with `SocketModeHandler`; `file_shared` triggers download → temp file → controller `handle_file_shared`
+- Message events route to controller `handle_query`
 
-## Integration Patterns
-- **Header-driven Mapping:** Google Sheets uses canonical column names from templates
-- **Correlation IDs:** End-to-end request tracking across all components
-- **Schema Validation:** All LLM outputs validated against JSON schemas
-- **Mock-first Testing:** Unit tests use mocks, E2E tests use real integrations
+## Data Flow
+- File → OCR/PDF → Granite → JSON schema validation → Sheets append → Slack confirmation
 
-## Configuration Patterns
-- **Single Source of Truth:** Prompts centralized in `config/prompts.py`
-- **Environment Variables:** All secrets and settings via environment
-- **Business Rules:** Configurable thresholds and limits via settings
-- **Template-driven:** Data structures defined in `data/templates/`
+## Observability
+- Log success/fail at each step; expand to structured JSON with correlation_id and duration metrics
 
-## Testing Patterns
-- **Test Categories:** Unit (mocked), Integration (partial mocks), E2E (real services)
-- **E2E Markers:** `@pytest.mark.e2e` for live integration tests
-- **Correlation Tracking:** Tests verify end-to-end request flow
-- **Validation Points:** Schema validation, confidence scoring, duplicate detection
+## Manual Review
+- Duplicate detection implemented; interactive Approve/Reject buttons planned for Slack review path
 
-## Deployment Patterns
-- **Local Parity:** Development environment mirrors production behavior
-- **ADK Wiring:** IBM Watsonx Orchestrate handles event routing and connections
-- **Observability:** Structured logging with correlation IDs and metrics
-- **Audit Trail:** All transactions logged with metadata and decisions
-
-## Error Handling Patterns
-- **Tenacity Retries:** Exponential backoff for external API calls
-- **Graceful Degradation:** Continue processing with partial data when possible
-- **Structured Logging:** JSON logs with error types, correlation IDs, and context
-- **Manual Review:** Low-confidence or duplicate receipts routed for human review
-
-## Security Patterns
-- **No Secrets in Code:** All credentials via environment variables
-- **Least Privilege:** Minimal required permissions for external services
-- **Audit Logging:** All actions tracked with correlation IDs
-- **Data Validation:** Input validation and schema enforcement throughout 
+## Security
+- No secrets in code or logs; env-only configuration; Slack file downloads authenticated via bot token 

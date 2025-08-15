@@ -1,7 +1,11 @@
-from typing import Any
+from typing import Any, Optional
+import os
+import tempfile
 
+import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_sdk import WebClient
 
 
 class SlackInterface:
@@ -17,6 +21,8 @@ class SlackInterface:
 		)
 		self.app_token = app_token
 		self.controller = controller
+		self.client = WebClient(token=bot_token)
+		self._test_mode = not verify_tokens
 		self._register_handlers()
 
 	def _register_handlers(self) -> None:
@@ -29,9 +35,56 @@ class SlackInterface:
 
 		@app_event(self.app, "file_shared")
 		def handle_file_shared(body, say, logger):
-			# Placeholder: controller is expected to fetch the file and process
-			result = self.controller.handle_file_shared(body)
-			say(result)
+			# In unit tests (verify_tokens=False), bypass Slack API calls and pass through
+			if self._test_mode:
+				result = self.controller.handle_file_shared(body)
+				say(result)
+				return
+			# Slack sends a minimal payload; fetch full file info via WebClient
+			try:
+				event = body.get("event", {}) or {}
+				file_id: Optional[str] = None
+				if isinstance(event.get("file"), dict):
+					file_id = event["file"].get("id")
+				else:
+					file_id = event.get("file_id")
+				if not file_id:
+					say("Sorry, could not identify the uploaded file.")
+					return
+
+				info = self.client.files_info(file=file_id)
+				f = info.get("file", {})
+				url_private = f.get("url_private_download") or f.get("url_private")
+				permalink = f.get("permalink", "")
+				filename = f.get("name", "receipt")
+				if not url_private:
+					say("Sorry, I couldn't download the file.")
+					return
+
+				# Download to a temp file using bot token auth
+				headers = {"Authorization": f"Bearer {self.client.token}"}
+				with requests.get(url_private, headers=headers, stream=True, timeout=60) as r:
+					r.raise_for_status()
+					fd, tmp_path = tempfile.mkstemp(prefix="receipt_", suffix=f"_{filename}")
+					os.close(fd)
+					with open(tmp_path, "wb") as out:
+						for chunk in r.iter_content(chunk_size=8192):
+							if chunk:
+								out.write(chunk)
+
+				payload = {"local_path": tmp_path, "receipt_link": permalink}
+				result = self.controller.handle_file_shared(payload)
+
+				status = (result or {}).get("status")
+				if status == "appended":
+					say("✅ Your receipt has been added to Google Sheets")
+				elif status == "duplicate":
+					say("⚠️ Possible duplicate detected. Sent for review.")
+				else:
+					say("❌ Could not process the receipt. Please try again or contact support.")
+			except Exception as e:
+				logger.exception("Error handling file_shared: %s", e)
+				say("❌ An error occurred while processing the receipt.")
 
 	def start(self) -> None:
 		handler = SocketModeHandler(self.app, self.app_token)

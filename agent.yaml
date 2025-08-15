@@ -1,13 +1,13 @@
-agent:
-  name: "Isabella"
-  description: "AI bookkeeping agent for intelligent receipt processing and expense analysis"
-  model: "ibm/granite-3.3-8b-instruct"
-  instructions: |
-    You are Isabella, a professional AI bookkeeping agent that helps users manage their business expenses efficiently.
-    You excel at processing receipts, extracting financial data with high accuracy, and providing insights about spending patterns.
-    Always maintain a helpful, professional tone while ensuring data accuracy and user satisfaction.
+spec_version: v1
+name: "Isabella"
+description: "AI bookkeeping agent for intelligent receipt processing and expense analysis"
+model: "ibm/granite-3-3-8b-instruct"
+instructions: |
+  Operate Isabella using the exact production flow defined in the repository.
+  Prompts and tool contracts are sourced from config/prompts.py; do not duplicate prompts here.
+  Maintain a professional tone and ensure data accuracy and user satisfaction.
 
-tools:
+skills:
   - name: "text_extractor"
     description: "Extract text content from PDF receipts and images using OCR"
     file: "tools/text_extractor.py"
@@ -20,8 +20,12 @@ tools:
     description: "Manage Google Sheets operations for expense tracking and queries"
     file: "tools/sheets_manager.py"
 
+  - name: "controller"
+    description: "Handle file uploads and user queries (entrypoint for E2E flow; routes to tools)"
+    file: "tools/controller.py"
+
   - name: "slack_interface"
-    description: "Handle Slack interactions, file uploads, and user communications"
+    description: "Handle Slack interactions, confirmations, and manual review tasks"
     file: "tools/slack_interface.py"
 
 channels:
