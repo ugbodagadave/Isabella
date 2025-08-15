@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 import io
 
@@ -10,8 +10,8 @@ import pdfplumber
 from models.vision_client import VisionClient
 
 # Inline configuration for this phase (non-secret values)
-OCR_BACKEND = "vision"  # default here; runner will choose dynamically
-VISION_MODEL_ID = "ibm/granite-llama-3-2-11b-vision-instruct"
+OCR_BACKEND = "vision"
+VISION_MODEL_ID = "meta-llama/llama-3-2-11b-vision-instruct"
 VISION_TEMPERATURE = 0.0
 VISION_MAX_TOKENS = 2048
 VISION_PAGE_LIMIT = 4
@@ -27,7 +27,6 @@ class VisionTextExtractor:
 		)
 
 	def _image_to_bytes(self, image: Image.Image) -> bytes:
-		# Downscale if needed
 		w, h = image.size
 		max_dim = max(w, h)
 		if max_dim > VISION_IMAGE_MAX_DIM:
@@ -45,13 +44,23 @@ class VisionTextExtractor:
 				images.append(self._image_to_bytes(pil))
 		return images
 
-	def extract(self, path: str) -> str:
-		ext = Path(path).suffix.lower()
+	def extract_from_url(self, url: str) -> str:
+		instruction = (
+			"Transcribe all visible text from the receipt image.\n"
+			"Preserve line breaks and amounts. Return only the transcribed text."
+		)
+		return self.client.transcribe_urls([url], instruction)
+
+	def extract(self, path_or_url: str) -> str:
+		# If it looks like an http(s) URL, use url path
+		if path_or_url.lower().startswith("http://") or path_or_url.lower().startswith("https://"):
+			return self.extract_from_url(path_or_url)
+		ext = Path(path_or_url).suffix.lower()
 		images: List[bytes]
 		if ext == ".pdf":
-			images = self._pdf_to_images(path)
+			images = self._pdf_to_images(path_or_url)
 		else:
-			img = Image.open(path)
+			img = Image.open(path_or_url)
 			images = [self._image_to_bytes(img)]
 		instruction = (
 			"Transcribe all visible text from the attached receipt image(s).\n"

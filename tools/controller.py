@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, List
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+import re
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -157,6 +158,33 @@ class Controller:
 				continue
 		return False
 
+	def _infer_vendor_from_text(self, text: str) -> str | None:
+		lines = [ln.strip() for ln in (text or '').splitlines() if ln.strip()]
+		candidates = []
+		skip_words = {"subtotal", "total", "tax", "cash", "change", "open", "manager", "items", "sold", "discount", "receipt"}
+		for ln in lines[:10]:
+			up = ln.upper()
+			if any(marker in up for marker in {"[IMAGE_BASE64_BEGIN", "DATA:IMAGE", "BASE64"}):
+				continue
+			if any(w in up for w in {"SUBTOTAL", "TOTAL", "CASH", "CHANGE", "DATE", "TIME"}):
+				continue
+			alpha_ratio = sum(ch.isalpha() for ch in ln) / max(1, len(ln))
+			if alpha_ratio < 0.4:
+				continue
+			words = [w for w in re.split(r"[^A-Za-z]+", ln) if w]
+			if any(w.lower() in skip_words for w in words):
+				continue
+			candidates.append(ln)
+		if not candidates:
+			return None
+		raw = candidates[0]
+		name = raw.replace("*", "").strip()
+		if name.upper().startswith("WALMART") or name.upper().startswith("WALMART") or name.upper().startswith("WALMART"):
+			name = "Walmart"
+		if name.upper().startswith("WALMART") or "WALMART" in name.upper() or "WAL-MART" in name.upper():
+			name = "Walmart"
+		return name
+
 	def handle_file_shared(self, body: Dict[str, Any]) -> Dict[str, Any]:
 		"""
 		Process a file upload event.
@@ -170,6 +198,9 @@ class Controller:
 
 		logger.debug("Starting OCR for: %s", local_path)
 		text = self._extract_text_with_retry(local_path)
+		if not text or len(text.strip()) < 20:
+			logger.error("Transcription returned insufficient text; length=%d", len(text.strip()) if text else 0)
+			return {"status": "error", "message": "insufficient_text"}
 
 		logger.debug("Processing receipt text; length=%d", len(text))
 		receipt = self._process_receipt_with_retry(text)
@@ -188,6 +219,12 @@ class Controller:
 				model_amt_f = float(model_amt) if model_amt is not None else 0.0
 				if parsed_total > 0 and (model_amt is None or parsed_total >= model_amt_f * 0.95):
 					receipt["amount"] = parsed_total
+			# Vendor inference from text header
+			inferred_vendor = self._infer_vendor_from_text(text)
+			if inferred_vendor:
+				model_vendor = str(receipt.get("vendor") or "").strip()
+				if model_vendor and model_vendor.lower() not in (text or "").lower():
+					receipt["vendor"] = inferred_vendor
 		except Exception:
 			pass
 

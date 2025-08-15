@@ -82,6 +82,9 @@ class SlackInterface:
 								out.write(chunk)
 
 				payload = {"local_path": tmp_path, "receipt_link": permalink}
+				# For vision OCR, also attempt URL-based extraction by passing URL as local_path
+				if permalink:
+					payload["local_path"] = permalink
 				result = self.controller.handle_file_shared(payload)
 
 				status = (result or {}).get("status")

@@ -55,33 +55,46 @@ class VisionClient:
 
 	def transcribe(self, images: List[bytes], instruction: str) -> str:
 		"""
-		Transcribe text from images using the chat multimodal endpoint.
+		Transcribe text from images using the chat multimodal endpoint with correct content types.
+		- Uses content parts: {"type":"text"} and {"type":"image_url"}
+		- Embeds the image via data URI in image_url
 		Falls back to text-generation if chat is not available.
 		"""
 		token = self._ensure_token()
 		base_url = self.settings.watsonx.url.rstrip('/')
 		chat_url = f"{base_url}/ml/v1/text/chat?version=2023-05-29"
-		# Build chat-style messages with input_text + input_image parts
-		contents: List[Dict[str, Any]] = [{"type": "input_text", "text": instruction}]
+		# Build messages: system + user (image(s) + instruction)
+		system_msg = {
+			"role": "system",
+			"content": (
+				"You are a receipt OCR engine. Transcribe the receipt exactly as printed. "
+				"Return ONLY the transcribed text. No explanations. No markdown. "
+				"If illegible, use '?' for characters."
+			),
+		}
+		user_content: List[Dict[str, Any]] = []
 		for img in images:
 			b64 = base64.b64encode(img).decode("utf-8")
-			contents.append({
-				"type": "input_image",
-				"mime_type": "image/jpeg",
-				"data": b64,
+			user_content.append({
+				"type": "image_url",
+				"image_url": {"url": f"data:image/jpeg;base64,{b64}"},
 			})
+		user_content.append({"type": "text", "text": instruction})
+		user_msg = {"role": "user", "content": user_content}
 		payload: Dict[str, Any] = {
 			"model_id": self.model_id,
 			"project_id": self.settings.watsonx.project_id,
-			"messages": [{"role": "user", "content": contents}],
-			"parameters": {
-				"decoding_method": "greedy",
-				"temperature": self.temperature,
-				"max_new_tokens": self.max_tokens,
-			},
+			"messages": [system_msg, user_msg],
+			"temperature": self.temperature,
+			"max_tokens": self.max_tokens,
+			"top_p": 1,
+			"frequency_penalty": 0,
+			"presence_penalty": 0,
 		}
 		try:
 			resp = requests.post(chat_url, headers=self._headers(token), json=payload, timeout=60)
+			if resp.status_code >= 400:
+				logger.warning("Vision chat HTTP %s: %s", resp.status_code, resp.text[:500])
 			resp.raise_for_status()
 			data = resp.json()
 			results = data.get("results") or []
@@ -104,13 +117,57 @@ class VisionClient:
 			"model_id": self.model_id,
 			"project_id": self.settings.watsonx.project_id,
 			"input": prompt,
-			"parameters": {
-				"decoding_method": "greedy",
-				"temperature": self.temperature,
-				"max_new_tokens": self.max_tokens,
-			},
+			"temperature": self.temperature,
+			"max_tokens": self.max_tokens,
+			"top_p": 1,
+			"frequency_penalty": 0,
+			"presence_penalty": 0,
 		}
 		resp = requests.post(gen_url, headers=self._headers(token), json=gen_payload, timeout=60)
+		if resp.status_code >= 400:
+			logger.error("Vision fallback generation HTTP %s: %s", resp.status_code, resp.text[:500])
+		resp.raise_for_status()
+		data = resp.json()
+		results = data.get("results") or []
+		if isinstance(results, list) and results:
+			text = results[0].get("generated_text") or results[0].get("output_text")
+			if text:
+				return str(text).strip()
+		return str(data) 
+
+
+	def transcribe_urls(self, image_urls: List[str], instruction: str) -> str:
+		"""
+		Transcribe text from one or more publicly accessible image URLs using chat API.
+		"""
+		token = self._ensure_token()
+		base_url = self.settings.watsonx.url.rstrip('/')
+		chat_url = f"{base_url}/ml/v1/text/chat?version=2023-05-29"
+		system_msg = {
+			"role": "system",
+			"content": (
+				"You are a receipt OCR engine. Transcribe the receipt exactly as printed. "
+				"Return ONLY the transcribed text. No explanations. No markdown. "
+				"If illegible, use '?' for characters."
+			),
+		}
+		user_content: List[Dict[str, Any]] = []
+		for url in image_urls:
+			user_content.append({"type": "image_url", "image_url": {"url": url}})
+		user_content.append({"type": "text", "text": instruction})
+		payload: Dict[str, Any] = {
+			"model_id": self.model_id,
+			"project_id": self.settings.watsonx.project_id,
+			"messages": [system_msg, {"role": "user", "content": user_content}],
+			"temperature": self.temperature,
+			"max_tokens": self.max_tokens,
+			"top_p": 1,
+			"frequency_penalty": 0,
+			"presence_penalty": 0,
+		}
+		resp = requests.post(chat_url, headers=self._headers(token), json=payload, timeout=60)
+		if resp.status_code >= 400:
+			logger.warning("Vision chat HTTP %s: %s", resp.status_code, resp.text[:500])
 		resp.raise_for_status()
 		data = resp.json()
 		results = data.get("results") or []
