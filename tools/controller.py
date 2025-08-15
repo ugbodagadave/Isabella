@@ -185,6 +185,41 @@ class Controller:
 			name = "Walmart"
 		return name
 
+	def _infer_location_from_text(self, text: str) -> str | None:
+		lines = [ln.strip() for ln in (text or '').splitlines() if ln.strip()]
+		addr_candidates: list[str] = []
+		# Very naive: look for a line that contains digits and a street-type keyword, or a city/state format
+		for ln in lines[:20]:
+			if len(addr_candidates) >= 2:
+				break
+			upper = ln.upper()
+			if any(k in upper for k in {" ST", " AVE", " ROAD", " RD", " DRIVE", " DR", " BLVD", " PARK", " WAY"}) and any(ch.isdigit() for ch in ln):
+				addr_candidates.append(ln)
+				continue
+			# city, state pattern: Dallas TX or San Francisco, CA
+			if re.search(r"[A-Za-z]+\s+[A-Z]{2}\s*\d{4,5}", ln):
+				addr_candidates.append(ln)
+		if addr_candidates:
+			return ", ".join(addr_candidates)
+		return None
+
+	def _infer_description_from_text(self, text: str) -> str | None:
+		# Use first two item lines that look like product lines (letters + amount) before totals
+		lines = [ln.strip() for ln in (text or '').splitlines() if ln.strip()]
+		item_lines: list[str] = []
+		amount_re = re.compile(r"\d+[\.,]\d{2}")
+		for ln in lines:
+			if len(item_lines) >= 2:
+				break
+			upper = ln.upper()
+			if any(k in upper for k in {"SUBTOTAL", "TOTAL", "AMOUNT"}):
+				break
+			if amount_re.search(ln) and any(ch.isalpha() for ch in ln):
+				item_lines.append(ln.split(amount_re.search(ln).group(0))[0].strip())
+		if item_lines:
+			return "; ".join(item_lines)
+		return None
+
 	def handle_file_shared(self, body: Dict[str, Any]) -> Dict[str, Any]:
 		"""
 		Process a file upload event.
@@ -245,6 +280,16 @@ class Controller:
 				model_vendor = str(receipt.get("vendor") or "").strip()
 				if model_vendor and model_vendor.lower() not in (text or "").lower():
 					receipt["vendor"] = inferred_vendor
+			# Location inference
+			if not receipt.get("location"):
+				loc = self._infer_location_from_text(text)
+				if loc:
+					receipt["location"] = loc
+			# Description inference
+			if not receipt.get("description"):
+				desc = self._infer_description_from_text(text)
+				if desc:
+					receipt["description"] = desc
 		except Exception:
 			pass
 
