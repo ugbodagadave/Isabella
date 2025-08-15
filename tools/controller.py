@@ -13,6 +13,7 @@ from tools.text_extractor import TextExtractor
 from tools.receipt_processor import ReceiptProcessor
 from tools.sheets_manager import SheetsManager
 from tools.query_analyzer import QueryAnalyzer
+from tools.receipt_processor import _extract_total_from_text
 
 
 logger = logging.getLogger(__name__)
