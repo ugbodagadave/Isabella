@@ -544,7 +544,6 @@ class Controller:
 
 		# Override amount with reliable OCR total if found and seems plausible
 		try:
-			from tools.receipt_processor import _extract_total_from_text  # local import to avoid cycles
 			parsed_total = _extract_total_from_text(text)
 			if parsed_total is not None:
 				# Prefer the larger between model and parsed total to avoid partial sums
