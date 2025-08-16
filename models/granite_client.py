@@ -30,6 +30,7 @@ class GraniteClient:
 				"max_new_tokens": max_tokens,
 				"repetition_penalty": 1.0,
 				"json_output": True,
+				"format": "json",
 			},
 		}
 		logger.debug("Built Granite request payload: model_id=%s len(prompt)=%d", self.settings.watsonx.model_id, len(prompt))
@@ -74,7 +75,7 @@ class GraniteClient:
 		# Expected shape: {"results": [{"generated_text": "..."}, ...]}
 		results = data.get("results") or []
 		if isinstance(results, list) and results:
-			text = results[0].get("generated_text") or results[0].get("output_text")
+			text = results[0].get("generated_json") or results[0].get("generated_text") or results[0].get("output_text")
 			if text:
 				return text
 		# Fallback: try top-level text
