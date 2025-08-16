@@ -14,6 +14,7 @@ from tools.receipt_processor import ReceiptProcessor
 from tools.sheets_manager import SheetsManager
 from tools.slack_interface import SlackInterface
 from tools.text_extractor import TextExtractor
+from tools.query_analyzer import QueryAnalyzer
 
 
 def main() -> None:
@@ -36,10 +37,14 @@ def main() -> None:
 	gs.connect()
 	sheets_manager = SheetsManager(gs)
 
+	# Wire QueryAnalyzer for NL queries
+	query_analyzer = QueryAnalyzer(granite)
+
 	controller = Controller(
 		text_extractor=text_extractor,
 		receipt_processor=receipt_processor,
 		sheets_manager=sheets_manager,
+		query_analyzer=query_analyzer,
 	)
 
 	slack = SlackInterface(

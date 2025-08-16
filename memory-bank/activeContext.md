@@ -150,3 +150,15 @@
 - Investigate Granite function-style JSON or stronger constrained output
 - Enhance receipt_number extraction and description summarization
 - Complete Query Analyzer prompt and integration for NL queries over Google Sheets 
+
+## Query Analyzer
+- Implemented natural-language query analysis producing a JSON plan schema.
+- Added robust prompt with schema and examples.
+- Implemented `tools/query_analyzer.py` with parsing, defaults, and relative date resolution.
+- Extended `tools/controller.py` to execute plans: filters (including text_search), grouping, trend bucketing, top-N, compare baseline vs target, sorting, and output rendering (summary/table/chart text).
+- Tests updated/added in `tests/test_integrations/test_query_flow.py`.
+
+Next steps
+- Consider adding vendor/category normalization tables for better matching.
+- Expand trend sorting for strict chronological order across granularities.
+- Optional: expose CSV export for table results. 

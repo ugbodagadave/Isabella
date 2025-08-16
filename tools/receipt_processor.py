@@ -151,8 +151,17 @@ class ReceiptProcessor:
 			try:
 				parsed = _try_extract_json_object(response_text)
 			except Exception as e:
-				logger.error("Granite returned invalid JSON and no recoverable object found")
-				raise ValueError("Model returned invalid JSON") from e
+				logger.warning("Granite returned invalid JSON; attempting one retry with strict JSON-only instruction")
+				strict_prompt = (
+					"ONLY return a valid minified JSON object that matches the schema above. "
+					"Do not use markdown, explanations, or extra keys. If unsure set value to null.\n\n" + prompt
+				)
+				try:
+					response_text2 = self.granite.generate(strict_prompt)
+					parsed = self.granite.parse_json(response_text2)
+				except Exception:
+					logger.error("Granite retry still returned invalid JSON")
+					raise ValueError("Model returned invalid JSON") from e
 
 		# Normalize fields for schema compatibility
 		parsed = self._normalize_fields(parsed)

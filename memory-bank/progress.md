@@ -190,3 +190,14 @@ The agent successfully processes receipts from Slack uploads, extracts structure
 - Add post-structuring validator that re-checks: vendor presence in transcript, address lines, and a robust receipt number pattern
 - Expand unit tests with these three receipts to cover failure cases (invalid JSON, missing fields)
 - Finalize Query Analyzer UX and prompts for natural-language spreadsheet queries 
+
+## Query Analyzer Completed
+- Implemented robust prompt and examples in `config/prompts.py`.
+- Built `QueryAnalyzer` with schema validation, defaults, and relative date normalization.
+- Extended `Controller.handle_query()` with an executor for filters, group_by, trend, top_n, compare, sorting, and output rendering.
+- Updated API docs with plan schema and examples.
+- Added/updated tests in `tests/test_integrations/test_query_flow.py` for analyzer parsing, summary, table search, relative date normalization, top-N, chart aggregate, and compare.
+
+Remaining
+- Consider stricter chronological ordering for certain trend granularities.
+- Optional data cleaning for vendor/category aliases. 

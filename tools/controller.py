@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -30,25 +30,76 @@ class Controller:
 	def handle_query(self, text: str) -> str:
 		if not self.query_analyzer:
 			return f"Received query: {text}"
-		analysis = self.query_analyzer.analyze(text)
+		plan = self.query_analyzer.analyze(text)
 		rows = self.sheets.query_expenses({})
-		filtered = self._apply_filters(rows, analysis.get("filters", {}), analysis.get("time_range") or {})
-		query_type = analysis.get("query_type", "summary")
-		response_format = analysis.get("response_format", "summary")
-		if query_type == "summary":
-			total = sum(float(r.get("amount", 0) or 0) for r in filtered)
-			count = len(filtered)
-			vendor_totals: Dict[str, float] = defaultdict(float)
-			for r in filtered:
-				vendor_totals[str(r.get("vendor", "Unknown"))] += float(r.get("amount", 0) or 0)
-			limit = max(1, int(self.settings.rules.top_vendors_limit or 5))
-			top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:limit]
-			vendors_str = "; ".join(f"{v}: {amt:.2f}" for v, amt in top_vendors) if top_vendors else "None"
-			return f"Summary: {count} expenses totaling {total:.2f}. Vendors: {vendors_str}"
-		elif query_type == "search" and response_format in {"table", "detailed"}:
-			return self._render_table(filtered)
-		else:
+		logger.info("Plan: intent=%s group_by=%s trend=%s top_n=%s filters=%s time_range=%s", plan.get("intent"), plan.get("group_by"), plan.get("trend"), plan.get("top_n"), plan.get("filters"), plan.get("time_range"))
+		filtered = self._apply_filters(rows, plan.get("filters", {}), plan.get("time_range") or {})
+		logger.info("Filtered rows by date: %d", len(filtered))
+		# Fallback: if no matches by receipt date, try processed_date range
+		if not filtered and (plan.get("time_range") or {}).get("relative"):
+			filtered = self._apply_filters(rows, plan.get("filters", {}), plan.get("time_range") or {}, use_processed_date=True)
+			logger.info("Filtered rows by processed_date: %d", len(filtered))
+		intent = plan.get("intent", "summary")
+		output_fmt = ((plan.get("output") or {}).get("format")) or "summary"
+
+		if (plan.get("compare") or {}).get("enabled"):
+			return self._execute_compare(rows, plan)
+
+		if intent == "search":
+			if output_fmt in {"table", "detailed"}:
+				return self._render_table(filtered)
 			return f"Found {len(filtered)} matching expenses"
+
+		if intent == "top_n" or (plan.get("top_n") or {}).get("enabled"):
+			dim = (plan.get("top_n") or {}).get("dimension") or "vendor"
+			limit = int((plan.get("top_n") or {}).get("limit") or 5)
+			top = self._aggregate_top(filtered, dim, limit)
+			parts = [f"{k}: {v:.2f}" for k, v in top]
+			return f"Summary: Top {limit} {dim}(s): " + "; ".join(parts) if parts else "Summary: no data"
+
+		group_by = plan.get("group_by", "none")
+		trend = plan.get("trend") or {"enabled": False, "granularity": "month"}
+		if intent == "trend" or trend.get("enabled"):
+			gran = trend.get("granularity", "month")
+			series = self._aggregate_trend(filtered, gran)
+			if output_fmt == "chart":
+				chart = (plan.get("output") or {}).get("chart") or {}
+				return self._render_chart_series(series, chart)
+			return self._render_grouped(series, key_label="date")
+
+		if intent == "aggregate" or group_by in {"vendor", "category", "date"}:
+			series = self._aggregate_group(filtered, group_by if group_by in {"vendor", "category", "date"} else "vendor")
+			if output_fmt == "chart":
+				chart = (plan.get("output") or {}).get("chart") or {}
+				return self._render_chart_series(series, chart)
+			return self._render_grouped(series, key_label=group_by)
+
+		# Default summary
+		total = sum(self._to_float(r.get("amount")) for r in filtered)
+		count = len(filtered)
+		vendor_totals: Dict[str, float] = defaultdict(float)
+		for r in filtered:
+			vendor_totals[str(r.get("vendor", "Unknown"))] += self._to_float(r.get("amount"))
+		limit = max(1, int(self.settings.rules.top_vendors_limit or 5))
+		top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+		vendors_str = "; ".join(f"{v}: {amt:.2f}" for v, amt in top_vendors) if top_vendors else "None"
+		return f"Summary: {count} expenses totaling {total:.2f}. Vendors: {vendors_str}"
+
+	def _render_grouped(self, series: List[Tuple[str, float, int]], key_label: str) -> str:
+		# Simple textual listing
+		if not series:
+			return "No results"
+		# Sort by total desc by default
+		series = sorted(series, key=lambda x: x[1], reverse=True)
+		parts = [f"{k}: {total:.2f} (count {cnt})" for k, total, cnt in series]
+		return "; ".join(parts)
+
+	def _render_chart_series(self, series: List[Tuple[str, float, int]], chart: Dict[str, Any]) -> str:
+		chart_type = (chart or {}).get("type") or "bar"
+		dim = (chart or {}).get("dimension") or "date"
+		metric = (chart or {}).get("metric") or "total"
+		points = len(series)
+		return f"Chart series prepared: type={chart_type}, dimension={dim}, metric={metric}, points={points}"
 
 	def _render_table(self, rows: List[Dict[str, Any]]) -> str:
 		headers = ["Date", "Vendor", "Amount", "Category"]
@@ -57,79 +108,211 @@ class Controller:
 			lines.append(" | ".join([
 				str(r.get("date", "")),
 				str(r.get("vendor", "")),
-				f"{float(r.get('amount', 0) or 0):.2f}",
+				f"{self._to_float(r.get('amount')):.2f}",
 				str(r.get("category", "")),
 			]))
+		# Log a small preview for debugging
+		logger.info("Rendered table with %d rows", max(0, len(rows) - 1))
 		return "\n".join(lines)
 
-	def _normalize_period(self, time_range: Dict[str, Any]) -> Dict[str, Any]:
-		period = (time_range or {}).get("period")
-		if not period:
-			return time_range or {}
-		today = date.today()
-		if period == "last_month":
-			first_this_month = today.replace(day=1)
-			last_month_end = first_this_month - timedelta(days=1)
-			last_month_start = last_month_end.replace(day=1)
-			return {"start_date": last_month_start.strftime("%Y-%m-%d"), "end_date": last_month_end.strftime("%Y-%m-%d"), "period": period}
-		if period == "this_month":
-			first_this_month = today.replace(day=1)
-			return {"start_date": first_this_month.strftime("%Y-%m-%d"), "end_date": today.strftime("%Y-%m-%d"), "period": period}
-		if period == "this_year":
-			first_this_year = today.replace(month=1, day=1)
-			return {"start_date": first_this_year.strftime("%Y-%m-%d"), "end_date": today.strftime("%Y-%m-%d"), "period": period}
-		return time_range or {}
+	def _to_float(self, v: Any) -> float:
+		try:
+			return float(v or 0)
+		except Exception:
+			return 0.0
 
-	def _apply_filters(self, rows: List[Dict[str, Any]], filters: Dict[str, Any], time_range: Dict[str, Any]) -> List[Dict[str, Any]]:
+	def _parse_row_date(self, value: Any) -> Optional[date]:
+		try:
+			if not value:
+				return None
+			return datetime.strptime(str(value), "%Y-%m-%d").date()
+		except Exception:
+			return None
+
+	def _parse_processed_date(self, value: Any) -> Optional[date]:
+		try:
+			if not value:
+				return None
+			# processed_date is ISO string
+			return datetime.fromisoformat(str(value)).date()
+		except Exception:
+			return None
+
+	def _normalize_time_range(self, time_range: Dict[str, Any]) -> Tuple[Optional[date], Optional[date]]:
+		tr = time_range or {}
+		start_str = tr.get("start_date")
+		end_str = tr.get("end_date")
+		rel = tr.get("relative")
+		start_dt = None
+		end_dt = None
+		# Resolve relative if provided (takes precedence to ensure consistency with current runtime date)
+		if rel:
+			today = date.today()
+			if rel == "this_month":
+				start_dt = today.replace(day=1)
+				end_dt = today
+			elif rel == "last_month":
+				first_this = today.replace(day=1)
+				last_prev = first_this - timedelta(days=1)
+				start_dt = last_prev.replace(day=1)
+				end_dt = last_prev
+			elif rel == "this_year":
+				start_dt = today.replace(month=1, day=1)
+				end_dt = today
+			elif rel == "last_7_days":
+				start_dt = today - timedelta(days=7)
+				end_dt = today
+			elif rel == "last_90_days":
+				start_dt = today - timedelta(days=90)
+				end_dt = today
+			elif rel == "last_quarter":
+				q = (today.month - 1) // 3 + 1
+				lq = q - 1 if q > 1 else 4
+				year = today.year if q > 1 else today.year - 1
+				start_month = 3 * (lq - 1) + 1
+				start_dt = date(year, start_month, 1)
+				end_month = start_month + 2
+				next_first = date(year + (1 if end_month == 12 and 12 == 12 else 0), (end_month % 12) + 1, 1)
+				end_dt = next_first - timedelta(days=1)
+		# explicit dates override if no relative provided
+		if not rel:
+			try:
+				if start_str:
+					start_dt = datetime.strptime(start_str, "%Y-%m-%d").date()
+			except Exception:
+				pass
+			try:
+				if end_str:
+					end_dt = datetime.strptime(end_str, "%Y-%m-%d").date()
+			except Exception:
+				pass
+		return start_dt, end_dt
+
+	def _apply_filters(self, rows: List[Dict[str, Any]], filters: Dict[str, Any], time_range: Dict[str, Any], use_processed_date: bool = False) -> List[Dict[str, Any]]:
 		categories = set((filters or {}).get("categories") or [])
 		vendors = set((filters or {}).get("vendors") or [])
 		min_amount = (filters or {}).get("min_amount")
 		max_amount = (filters or {}).get("max_amount")
-		tr = self._normalize_period(time_range or {})
-		start_date_str = tr.get("start_date")
-		end_date_str = tr.get("end_date")
+		text_search = (filters or {}).get("text_search")
+		start_dt, end_dt = self._normalize_time_range(time_range or {})
 
-		def parse_row_date(value: Any) -> Optional[date]:
-			try:
-				if not value:
-					return None
-				return datetime.strptime(str(value), "%Y-%m-%d").date()
-			except Exception:
-				return None
-
-		start_dt = None
-		end_dt = None
-		try:
-			start_dt = datetime.strptime(start_date_str, "%Y-%m-%d").date() if start_date_str else None
-		except Exception:
-			start_dt = None
-		try:
-			end_dt = datetime.strptime(end_date_str, "%Y-%m-%d").date() if end_date_str else None
-		except Exception:
-			end_dt = None
+		needle = str(text_search or "").strip().lower()
 
 		def matches(row: Dict[str, Any]) -> bool:
 			if categories and row.get("category") not in categories:
 				return False
 			if vendors and row.get("vendor") not in vendors:
 				return False
-			try:
-				amt = float(row.get("amount", 0) or 0)
-			except Exception:
-				amt = 0
+			amt = self._to_float(row.get("amount"))
 			if min_amount is not None and amt < float(min_amount):
 				return False
 			if max_amount is not None and amt > float(max_amount):
 				return False
 			if start_dt or end_dt:
-				rd = parse_row_date(row.get("date"))
+				if use_processed_date:
+					rd = self._parse_processed_date(row.get("Processed_Date") or row.get("processed_date"))
+				else:
+					rd = self._parse_row_date(row.get("date"))
 				if start_dt and (rd is None or rd < start_dt):
 					return False
 				if end_dt and (rd is None or rd > end_dt):
 					return False
+			if needle:
+				blob = " ".join([
+					str(row.get("description", "")),
+					str(row.get("vendor", "")),
+					str(row.get("location", "")),
+				]).lower()
+				if needle not in blob:
+					return False
 			return True
 
 		return [r for r in rows if matches(r)]
+
+	def _aggregate_group(self, rows: List[Dict[str, Any]], dim: str) -> List[Tuple[str, float, int]]:
+		totals: Dict[str, float] = defaultdict(float)
+		counts: Dict[str, int] = defaultdict(int)
+		key = dim if dim in {"vendor", "category"} else "date"
+		for r in rows:
+			k = str(r.get(key, ""))
+			val = self._to_float(r.get("amount"))
+			totals[k] += val
+			counts[k] += 1
+		return [(k, totals[k], counts[k]) for k in totals.keys()]
+
+	def _bucket_date(self, d: date, gran: str) -> str:
+		if gran == "day":
+			return d.isoformat()
+		if gran == "week":
+			year, week, _ = d.isocalendar()
+			return f"{year}-W{int(week):02d}"
+		if gran == "month":
+			return f"{d.year}-{d.month:02d}"
+		if gran == "quarter":
+			q = (d.month - 1) // 3 + 1
+			return f"{d.year}-Q{q}"
+		if gran == "year":
+			return f"{d.year}"
+		return d.isoformat()
+
+	def _aggregate_trend(self, rows: List[Dict[str, Any]], granularity: str) -> List[Tuple[str, float, int]]:
+		totals: Dict[str, float] = defaultdict(float)
+		counts: Dict[str, int] = defaultdict(int)
+		gran = granularity or "month"
+		for r in rows:
+			rd = self._parse_row_date(r.get("date"))
+			if not rd:
+				continue
+			key = self._bucket_date(rd, gran)
+			totals[key] += self._to_float(r.get("amount"))
+			counts[key] += 1
+		# Sort keys by date ordering where possible
+		def sort_key(item: Tuple[str, float, int]) -> Tuple[int, str]:
+			k = item[0]
+			# Try to parse common formats
+			try:
+				if gran in {"day"}:
+					return (0, k)
+				if gran == "month":
+					return (0, k)
+				if gran == "year":
+					return (0, k)
+				if gran == "week":
+					return (0, k)
+				if gran == "quarter":
+					return (0, k)
+			except Exception:
+				pass
+			return (1, k)
+		series = [(k, totals[k], counts[k]) for k in totals.keys()]
+		return sorted(series, key=sort_key)
+
+	def _aggregate_top(self, rows: List[Dict[str, Any]], dimension: str, limit: int) -> List[Tuple[str, float]]:
+		dim = dimension if dimension in {"vendor", "category"} else "vendor"
+		totals: Dict[str, float] = defaultdict(float)
+		for r in rows:
+			k = str(r.get(dim, ""))
+			totals[k] += self._to_float(r.get("amount"))
+		items = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
+		return items[: max(1, int(limit))]
+
+	def _execute_compare(self, all_rows: List[Dict[str, Any]], plan: Dict[str, Any]) -> str:
+		filters = plan.get("filters", {})
+		cmp = plan.get("compare") or {}
+		baseline = cmp.get("baseline") or {}
+		target = cmp.get("target") or {}
+		def _sum_for_range(rng: Dict[str, Any]) -> Tuple[float, int]:
+			rows = self._apply_filters(all_rows, filters, {"start_date": rng.get("start_date"), "end_date": rng.get("end_date"), "relative": None})
+			# Try processed_date if no match
+			if not rows:
+				rows = self._apply_filters(all_rows, filters, {"start_date": rng.get("start_date"), "end_date": rng.get("end_date"), "relative": None}, use_processed_date=True)
+			total = sum(self._to_float(r.get("amount")) for r in rows)
+			return total, len(rows)
+		b_total, b_count = _sum_for_range(baseline)
+		t_total, t_count = _sum_for_range(target)
+		delta = t_total - b_total
+		pct = (delta / b_total * 100.0) if b_total else 0.0
+		return f"Compare: baseline total {b_total:.2f} ({b_count}); target total {t_total:.2f} ({t_count}); delta {delta:.2f} ({pct:.1f}%)"
 
 	@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
 	def _extract_text_with_retry(self, path: str) -> str:

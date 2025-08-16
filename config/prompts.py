@@ -52,32 +52,73 @@ JSON RESPONSE (no markdown):
 
 
 QUERY_ANALYSIS_PROMPT = """
-You are Isabella, an AI bookkeeping agent. Analyze this user query about their expenses.
+You are Isabella’s Query Analyzer. Your job is to translate a natural-language question about the Expenses Google Sheet into a precise JSON query plan. Do not answer the question; only return one minified JSON object, no markdown, no commentary.
 
-USER QUERY: {user_query}
+Sheet schema:
+- date (YYYY-MM-DD), vendor (string), amount (number), category (string), description (string), receipt_link (string), payment_method (string), receipt_number (string), tax_amount (string|number), location (string), processed_date (ISO), confidence_score (string|number).
+Common categories: Office Supplies, Groceries, Travel & Transportation, Meals & Entertainment, Equipment & Software, Professional Services, Marketing & Advertising, Utilities & Communications, Training & Education, Maintenance & Repairs, Other Business Expenses.
 
-CURRENT DATE: {current_date}
+Current date: {current_date}
 
-DETERMINE:
-1. Query type: summary, search, analysis, or report
-2. Time range: specific dates, relative periods (last month, this year, etc.)
-3. Filters needed: categories, vendors, amounts, etc.
-4. Response format: table, list, chart, or narrative
-
-Return as JSON:
+Your output schema (all fields required; use null for unknowns):
 {{
-  "query_type": "summary|search|analysis|report",
+  "intent": "summary|search|aggregate|trend|top_n|compare",
   "time_range": {{
     "start_date": "YYYY-MM-DD or null",
     "end_date": "YYYY-MM-DD or null",
-    "period": "last_month|this_year|etc or null"
+    "relative": "last_month|this_month|this_year|last_quarter|last_7_days|last_90_days|custom|null"
   }},
   "filters": {{
-    "categories": ["category1", "category2"] or null,
-    "vendors": ["vendor1", "vendor2"] or null,
+    "vendors": ["..."] or null,
+    "categories": ["..."] or null,
     "min_amount": number or null,
-    "max_amount": number or null
+    "max_amount": number or null,
+    "text_search": "string or null"
   }},
-  "response_format": "table|summary|chart|detailed"
+  "group_by": "none|vendor|category|date",
+  "trend": {{
+    "enabled": true|false,
+    "granularity": "day|week|month|quarter|year"
+  }},
+  "top_n": {{
+    "enabled": true|false,
+    "dimension": "vendor|category",
+    "limit": number
+  }},
+  "compare": {{
+    "enabled": true|false,
+    "baseline": {{ "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }} or null,
+    "target": {{ "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }} or null
+  }},
+  "sort": {{
+    "by": "amount|date|vendor|category|count|total",
+    "direction": "asc|desc"
+  }},
+  "output": {{
+    "format": "summary|table|detailed|chart",
+    "chart": {{
+      "type": "bar|line|pie|area|null",
+      "dimension": "vendor|category|date|null",
+      "metric": "amount|count|total|null"
+    }}
+  }}
 }}
+
+Rules:
+- Infer relative dates; when possible provide explicit start/end dates (YYYY-MM-DD). Set time_range.relative for the user’s phrasing.
+- Extract filters for vendors, categories, min_amount, max_amount, text_search (applies to description/vendor/location).
+- For “top” queries set top_n.enabled=true and dimension vendor|category; default limit=5.
+- For trends, trend.enabled=true and set granularity=day|week|month|quarter|year.
+- For grouping, set group_by to vendor|category|date as needed; otherwise “none”.
+- Choose output.format: summary|table|detailed|chart. If chart, set chart.type (bar|line|pie|area), chart.dimension, and chart.metric (amount|count|total).
+- No extra keys; if unsure, set fields to null; return a single minified JSON object.
+
+USER QUERY: {user_query}
+
+Examples:
+{{"intent":"top_n","time_range":{{"start_date":null,"end_date":null,"relative":"last_90_days"}},"filters":{{"vendors":null,"categories":null,"min_amount":null,"max_amount":null,"text_search":null}},"group_by":"vendor","trend":{{"enabled":false,"granularity":"month"}},"top_n":{{"enabled":true,"dimension":"vendor","limit":5}},"compare":{{"enabled":false,"baseline":null,"target":null}},"sort":{{"by":"total","direction":"desc"}},"output":{{"format":"summary","chart":{{"type":null,"dimension":null,"metric":null}}}}}}
+{{"intent":"aggregate","time_range":{{"start_date":null,"end_date":null,"relative":"last_month"}},"filters":{{"vendors":null,"categories":null,"min_amount":null,"max_amount":null,"text_search":null}},"group_by":"category","trend":{{"enabled":true,"granularity":"month"}},"top_n":{{"enabled":false,"dimension":"category","limit":5}},"compare":{{"enabled":false,"baseline":null,"target":null}},"sort":{{"by":"total","direction":"desc"}},"output":{{"format":"chart","chart":{{"type":"bar","dimension":"category","metric":"total"}}}}}}
+{{"intent":"search","time_range":{{"start_date":null,"end_date":null,"relative":"this_year"}},"filters":{{"vendors":["Trader Joe's"],"categories":["Groceries"],"min_amount":20,"max_amount":null,"text_search":null}},"group_by":"none","trend":{{"enabled":false,"granularity":"month"}},"top_n":{{"enabled":false,"dimension":"vendor","limit":5}},"compare":{{"enabled":false,"baseline":null,"target":null}},"sort":{{"by":"date","direction":"desc"}},"output":{{"format":"table","chart":{{"type":null,"dimension":null,"metric":null}}}}}}
+{{"intent":"compare","time_range":{{"start_date":null,"end_date":null,"relative":"this_month"}},"filters":{{"vendors":null,"categories":["Office Supplies"],"min_amount":null,"max_amount":null,"text_search":null}},"group_by":"none","trend":{{"enabled":false,"granularity":"month"}},"top_n":{{"enabled":false,"dimension":"vendor","limit":5}},"compare":{{"enabled":true,"baseline":{{"start_date":"2025-01-01","end_date":"2025-01-31"}},"target":{{"start_date":"2025-02-01","end_date":"2025-02-28"}}}},"sort":{{"by":"total","direction":"desc"}},"output":{{"format":"summary","chart":{{"type":null,"dimension":null,"metric":null}}}}}}
+{{"intent":"trend","time_range":{{"start_date":null,"end_date":null,"relative":"this_year"}},"filters":{{"vendors":null,"categories":["Travel & Transportation"],"min_amount":null,"max_amount":null,"text_search":null}},"group_by":"date","trend":{{"enabled":true,"granularity":"month"}},"top_n":{{"enabled":false,"dimension":"vendor","limit":5}},"compare":{{"enabled":false,"baseline":null,"target":null}},"sort":{{"by":"date","direction":"asc"}},"output":{{"format":"chart","chart":{{"type":"line","dimension":"date","metric":"total"}}}}}}
 """ 
