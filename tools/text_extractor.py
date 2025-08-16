@@ -52,8 +52,20 @@ class TextExtractor:
 		if max_dim > VISION_IMAGE_MAX_DIM:
 			scale = VISION_IMAGE_MAX_DIM / float(max_dim)
 			image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+		# Ensure image is RGB for JPEG conversion; some Slack PNGs are palette (mode "P")
+		if image.mode not in {"RGB", "RGBA"}:
+			try:
+				image = image.convert("RGB")
+			except Exception:
+				pass
 		buf = io.BytesIO()
-		image.save(buf, format="JPEG", quality=85, optimize=True)
+		try:
+			image.save(buf, format="JPEG", quality=85, optimize=True)
+		except Exception:
+			# Fallback to PNG encoding if JPEG fails (e.g., unsupported mode)
+			buf.seek(0)
+			buf.truncate(0)
+			image.save(buf, format="PNG", optimize=True)
 		return buf.getvalue()
 
 	def _pdf_to_images(self, pdf_path: str) -> list[bytes]:

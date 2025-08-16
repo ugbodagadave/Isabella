@@ -29,6 +29,7 @@ class GraniteClient:
 				"temperature": temperature,
 				"max_new_tokens": max_tokens,
 				"repetition_penalty": 1.0,
+				"json_output": True,
 			},
 		}
 		logger.debug("Built Granite request payload: model_id=%s len(prompt)=%d", self.settings.watsonx.model_id, len(prompt))

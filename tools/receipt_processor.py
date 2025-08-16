@@ -139,7 +139,14 @@ class ReceiptProcessor:
 		return parsed
 
 	def process(self, receipt_text: str) -> Dict[str, Any]:
-		prompt = RECEIPT_EXTRACTION_PROMPT.format(receipt_text=receipt_text)
+		# Trim very long receipts to improve JSON success: keep first 40 and last 40 lines
+		lines = receipt_text.splitlines()
+		if len(lines) > 120:
+			trimmed_lines = lines[:40] + ["..."] + lines[-40:]
+			receipt_trimmed = "\n".join(trimmed_lines)
+		else:
+			receipt_trimmed = receipt_text
+		prompt = RECEIPT_EXTRACTION_PROMPT.format(receipt_text=receipt_trimmed)
 		logger.debug("Sending receipt text to Granite for extraction; text_length=%d", len(receipt_text))
 		response_text = self.granite.generate(prompt)
 
