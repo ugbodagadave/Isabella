@@ -1,47 +1,39 @@
-# IBM watsonx Integration (Granite + Orchestrate)
+# IBM watsonx Integration Guide
 
-This document provides comprehensive technical details on how IBM watsonx.ai (Granite) is integrated within the Isabella AI bookkeeping agent.
+This document provides a technical overview of how Isabella integrates with the IBM watsonx platform, supporting two primary modes of operation:
+1.  **Direct watsonx.ai Integration**: Using the Granite family of models directly via the Watsonx API for maximum control.
+2.  **Orchestrate Framework**: Using IBM watsonx Orchestrate to build, manage, and expose skills as part of a larger automation ecosystem.
 
-## Architecture Overview
+The current implementation in the `main` branch uses the **direct watsonx.ai integration** method.
+
+## 1. Direct watsonx.ai Integration (Current Method)
+
+This approach involves making direct API calls to the watsonx.ai platform to access the Granite models for receipt processing and query analysis.
 
 ### Core Components
+- **Granite Client (`models/granite_client.py`)**: A dedicated client that handles authentication and API requests to the watsonx.ai text generation endpoint. It automatically manages IAM token refreshes.
+- **Slack Socket Mode Listener (`tools/slack_socket_runner.py`)**: The entrypoint that initializes all components and listens for Slack events. It directly calls the `GraniteClient` as needed.
 
-#### 1. Granite Client (`models/granite_client.py`)
-**Purpose:** Manages IBM Watsonx API interactions for the Granite model.
+### Data Flow
+1.  **Event Trigger**: A user uploads a receipt or sends a query in Slack.
+2.  **Component Invocation**: The `Controller` directly invokes either the `ReceiptProcessor` or the `QueryAnalyzer`.
+3.  **API Call**: These tools use the `GraniteClient` to make a secure API call to the watsonx.ai endpoint, passing the relevant text and prompt.
+4.  **Response Handling**: The client parses the `generated_text` from the API response and returns it to the controller for further processing.
 
-**Authentication Flow:**
-- Obtains an IAM access token from `https://iam.cloud.ibm.com/identity/token` using `WATSONX_API_KEY`.
-- The token is cached in memory with automatic refresh when expired.
+## 2. IBM watsonx Orchestrate Integration (Alternative Method)
 
-**API Integration:**
-- Calls the Text Generation endpoint: `{WATSONX_URL}/ml/v1/text/generation`.
-- Sends `model_id` (e.g., `ibm/granite-8b-r-instruct`) and `project_id` from the environment.
-- Parses `generated_text` from the response for structured data extraction or query analysis.
+This approach treats Isabella's capabilities as "skills" within the Orchestrate framework. While not the current default, the architecture is designed to support this model.
 
-**Configuration:**
-- `WATSONX_API_KEY`: IBM Cloud IAM API key for authentication.
-- `WATSONX_URL`: Watsonx service URL (e.g., `https://us-south.ml.cloud.ibm.com`).
-- `WATSONX_PROJECT_ID`: Project identifier for model access.
-- `GRANITE_MODEL_ID`: The specific model identifier to be used.
+### Conceptual Architecture
+- **Agent Definition (`agent.yaml`)**: Defines the "Isabella" agent and its skills (e.g., `process_receipt`, `answer_query`) for the Orchestrate platform.
+- **Orchestrate Server**: A local or cloud-based Orchestrate instance that loads the agent definition.
+- **Skill Implementation**: The tools in the `/tools` directory are exposed as the underlying implementation for the skills defined in `agent.yaml`.
 
-#### 2. Slack Socket Mode Listener (`tools/slack_socket_runner.py`)
-**Purpose:** A dedicated WebSocket listener for Slack events that avoids the need for public HTTP endpoints, making it ideal for local development and secure deployments.
+### Data Flow with Orchestrate
+1.  **External Trigger**: An event (e.g., a new email with a receipt attachment) is received by an Orchestrate-connected app.
+2.  **Orchestrate Flow**: A pre-defined automation flow in Orchestrate is triggered.
+3.  **Skill Execution**: The flow invokes the `process_receipt` skill from the Isabella agent.
+4.  **Tool Invocation**: Orchestrate calls the underlying tool (e.g., `tools.controller.handle_file`) to execute the logic.
+5.  **Response**: The result is returned to the Orchestrate flow, which could then perform further actions, like sending a notification or updating a database.
 
-**Implementation:**
-- Uses `slack-bolt` and `SocketModeHandler` for WebSocket communication.
-- Initializes all core components, including the `GraniteClient`, `Controller`, and `SlackInterface`.
-- Runs as a blocking process for continuous event handling.
-
-## Data Flow Architecture
-
-### Receipt Processing Pipeline
-1.  **Slack File Upload Trigger**: A `file_shared` event is received by the Socket Mode listener.
-2.  **Text Extraction (OCR)**: The file is downloaded, and a vision model (`meta-llama/llama-3-2-11b-vision-instruct`) transcribes the text.
-3.  **AI-Powered Data Extraction**: `tools/receipt_processor.py` calls the Granite model via `models/granite_client.py` with the extracted text and a specific prompt to get structured JSON data.
-4.  **Data Persistence & Confirmation**: The validated JSON is appended to Google Sheets, and a confirmation is sent to Slack.
-
-### Query Analysis Pipeline
-1.  **Slack Message Trigger**: A `message` event containing a natural language query is received.
-2.  **AI-Powered Query Analysis**: `tools/query_analyzer.py` calls the Granite model with the user's text and a prompt designed to translate the query into a structured JSON "query plan".
-3.  **Execution**: `tools/controller.py` receives the plan, fetches all data from Google Sheets, and executes the query logic (filtering, aggregation) locally.
-4.  **Response**: A formatted response is sent back to Slack. 
+For a complete guide to setting up and running the local Orchestrate Developer Edition, see the **[Orchestrate Setup Guide](docs/setup.md)**. 
