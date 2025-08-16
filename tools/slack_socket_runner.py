@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import os
 
 from dotenv import load_dotenv
 
@@ -13,6 +14,7 @@ from tools.receipt_processor import ReceiptProcessor
 from tools.sheets_manager import SheetsManager
 from tools.slack_interface import SlackInterface
 from tools.text_extractor import TextExtractor
+from tools.query_analyzer import QueryAnalyzer
 
 
 def main() -> None:
@@ -23,20 +25,26 @@ def main() -> None:
 	logging.basicConfig(level=logging.INFO)
 	settings = load_settings()
 
+	# Text extractor defaults to vision backend when OCR_BACKEND is not set
 	text_extractor = TextExtractor(
-		tesseract_cmd=settings.ocr.tesseract_cmd,
+		tesseract_cmd=settings.ocr.tesseract_cmd or None,
 		lang=settings.ocr.tesseract_lang,
 	)
+
 	granite = GraniteClient()
 	receipt_processor = ReceiptProcessor(granite)
 	gs = GoogleSheetsClient()
 	gs.connect()
 	sheets_manager = SheetsManager(gs)
 
+	# Wire QueryAnalyzer for NL queries
+	query_analyzer = QueryAnalyzer(granite)
+
 	controller = Controller(
 		text_extractor=text_extractor,
 		receipt_processor=receipt_processor,
 		sheets_manager=sheets_manager,
+		query_analyzer=query_analyzer,
 	)
 
 	slack = SlackInterface(

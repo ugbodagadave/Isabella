@@ -9,8 +9,8 @@ from tools.sheets_manager import SheetsManager
 def test_end_to_end_mocked_flow():
 	# Mock OCR to return synthetic text
 	with patch("tools.text_extractor.pytesseract.image_to_string", return_value="ACME Store Total 12.34 on 2024-01-01"), \
-		 patch("tools.text_extractor.Image.open"):
-		ocr = TextExtractor()
+			 patch("tools.text_extractor.Image.open"):
+		ocr = TextExtractor(backend="tesseract")
 		text = ocr.extract_from_image("/path/to/receipt.png")
 
 	# Mock Granite generate/parse_json to return valid receipt JSON
@@ -30,7 +30,7 @@ def test_end_to_end_mocked_flow():
 
 	# Mock Sheets append
 	with patch("integrations.google_sheets_api.Credentials.from_service_account_file", return_value=object()), \
-		 patch("integrations.google_sheets_api.gspread.authorize") as mock_auth:
+			 patch("integrations.google_sheets_api.gspread.authorize") as mock_auth:
 		fake_ws = MagicMock()
 		fake_ss = MagicMock()
 		fake_gc = MagicMock()

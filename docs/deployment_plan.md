@@ -18,7 +18,7 @@ Primary reference:
 - Manual review path via Slack interactive buttons
 
 The E2E production flow is unchanged:
-1) `tools/text_extractor.py` → OCR/PDF text
+1) Vision chat OCR → image/PDF text (PDFs rasterized to images)
 2) `tools/receipt_processor.py` → Granite 3.3 JSON → validate with `data/schemas/receipt_schema.json`
 3) `tools/sheets_manager.py` → append to Google Sheets using `data/templates/sheets_template.json`
 4) Slack confirmation: "✅ Your receipt has been added to Google Sheets"

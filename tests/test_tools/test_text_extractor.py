@@ -4,7 +4,7 @@ from tools.text_extractor import TextExtractor
 
 
 def test_text_extractor_init():
-	tex = TextExtractor(tesseract_cmd="/usr/bin/tesseract", lang="eng")
+	tex = TextExtractor(tesseract_cmd="/usr/bin/tesseract", lang="eng", backend="tesseract")
 	assert tex.lang == "eng"
 
 
@@ -13,7 +13,7 @@ def test_text_extractor_init():
 def test_extract_from_image(mock_open, mock_ocr):
 	mock_img = MagicMock()
 	mock_open.return_value = mock_img
-	tex = TextExtractor(lang="eng")
+	tex = TextExtractor(lang="eng", backend="tesseract")
 	text = tex.extract_from_image("/tmp/sample.png")
 	assert text == "Hello World"
 	mock_ocr.assert_called_once()
@@ -32,7 +32,7 @@ def test_extract_from_pdf(mock_pdf_open):
 	mock_pdf.pages = [mock_page1, mock_page2]
 	mock_pdf_open.return_value = mock_pdf
 
-	tex = TextExtractor()
+	tex = TextExtractor(backend="tesseract")
 	text = tex.extract_from_pdf("/tmp/sample.pdf")
 	assert text == "Page 1 Text"
 	mock_pdf_open.assert_called_once() 

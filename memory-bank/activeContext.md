@@ -139,3 +139,26 @@
 - Expand observability: correlation IDs and duration metrics across OCR/LLM/Sheets/Slack
 - Harden error handling and retries in the Slack runner
 - Consider HTTP mode implementation for alternative deployment scenarios 
+
+## Status Update – Vision/PDF flow
+- Image receipts: extracted via vision chat; transcripts logged; structuring via Granite with stricter prompt and retry
+- PDFs: extracted via `pdfplumber` (no vision)
+- Post-processing: vendor/amount/date/location/description heuristics; duplicate detection intact
+- Known issue: intermittent Granite invalid JSON responses on some receipts; temporary heuristic fallback implemented
+
+## Action Items
+- Investigate Granite function-style JSON or stronger constrained output
+- Enhance receipt_number extraction and description summarization
+- Complete Query Analyzer prompt and integration for NL queries over Google Sheets 
+
+## Query Analyzer
+- Implemented natural-language query analysis producing a JSON plan schema.
+- Added robust prompt with schema and examples.
+- Implemented `tools/query_analyzer.py` with parsing, defaults, and relative date resolution.
+- Extended `tools/controller.py` to execute plans: filters (including text_search), grouping, trend bucketing, top-N, compare baseline vs target, sorting, and output rendering (summary/table/chart text).
+- Tests updated/added in `tests/test_integrations/test_query_flow.py`.
+
+Next steps
+- Consider adding vendor/category normalization tables for better matching.
+- Expand trend sorting for strict chronological order across granularities.
+- Optional: expose CSV export for table results. 

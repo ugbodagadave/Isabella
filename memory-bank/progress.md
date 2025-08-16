@@ -168,3 +168,36 @@ The Isabella AI bookkeeping agent is now fully operational with:
 - Production-ready configuration and error handling
 
 The agent successfully processes receipts from Slack uploads, extracts structured data using IBM Granite 3.3, appends to Google Sheets, and provides user confirmation - all running locally with enterprise-grade security and observability. 
+
+## Recent Updates (Vision OCR pivot)
+- Switched image extraction to IBM watsonx chat with `meta-llama/llama-3-2-11b-vision-instruct` (images sent as base64 data URIs)
+- PDFs now extracted via library (`pdfplumber`) instead of the vision model
+- Added transcript preview logging (first 10 lines, redacted)
+- Removed fallback that echoed base64 into transcripts; strict parsing of chat response including `choices → message → content`
+- Sanitization: strip markdown-style headings (e.g., `**Header**`) before Granite structuring
+- Prompt hardening for structuring (vendor, location, description, receipt_number guidance)
+- Strict retry in `ReceiptProcessor` with JSON-only instruction when Granite returns invalid JSON
+- Heuristic fallback in `Controller` when Granite still fails (vendor/date/amount/location/description inferred from text)
+
+## Current Issues / To Fix
+- Intermittent Granite JSON formatting errors on some receipts despite strict retry (needs more constrained prompting or function-style output)
+- Description summarization sometimes incomplete; improve item-line heuristics and prompt examples
+- Receipt number extraction varies by layout; add more patterns or post-process from transcript when model omits
+- Vision transcripts occasionally include formatting artifacts; continue refining sanitization rules
+
+## Next Steps
+- Evaluate Granite JSON mode/function calling (if available) or adopt a more constrained schema tool
+- Add post-structuring validator that re-checks: vendor presence in transcript, address lines, and a robust receipt number pattern
+- Expand unit tests with these three receipts to cover failure cases (invalid JSON, missing fields)
+- Finalize Query Analyzer UX and prompts for natural-language spreadsheet queries 
+
+## Query Analyzer Completed
+- Implemented robust prompt and examples in `config/prompts.py`.
+- Built `QueryAnalyzer` with schema validation, defaults, and relative date normalization.
+- Extended `Controller.handle_query()` with an executor for filters, group_by, trend, top_n, compare, sorting, and output rendering.
+- Updated API docs with plan schema and examples.
+- Added/updated tests in `tests/test_integrations/test_query_flow.py` for analyzer parsing, summary, table search, relative date normalization, top-N, chart aggregate, and compare.
+
+Remaining
+- Consider stricter chronological ordering for certain trend granularities.
+- Optional data cleaning for vendor/category aliases. 

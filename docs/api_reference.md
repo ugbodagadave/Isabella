@@ -3,18 +3,18 @@
 ## Core Tools
 
 ### Text Extractor (`tools/text_extractor.py`)
-Handles text extraction from images and PDFs using OCR and PDF parsing.
+Handles text extraction from images and PDFs. Default backend is the IBM watsonx chat vision model; legacy Tesseract/PDF parsing remains available for tests.
 
 **Main Methods:**
-- `extract(path: str) -> str` - Auto-detects file type and routes to appropriate extraction method
-- `extract_from_image(image_path: str) -> str` - OCR with optional preprocessing (grayscale + sharpen)
-- `extract_from_pdf(pdf_path: str) -> str` - PDF text extraction using pdfplumber
+- `extract(path: str) -> str` - Detects URL/file; for images and PDFs uses vision chat by default; legacy OCR paths available
+- `extract_from_image(image_path: str) -> str` - Vision chat transcription when backend is `vision`; otherwise Tesseract
+- `extract_from_pdf(pdf_path: str) -> str` - PDF text via `pdfplumber` (no vision)
 
 **Features:**
-- Automatic file type detection by extension
-- Image preprocessing for improved OCR accuracy
+- Vision-first extraction via `meta-llama/llama-3-2-11b-vision-instruct`
+- Data URI image embedding to chat API; supports public URLs when permitted
+- Optional legacy OCR for tests: set `OCR_BACKEND=tesseract`
 - Robust error handling with logging
-- Support for multiple image formats (PNG, JPG, etc.) and PDFs
 
 ### Receipt Processor (`tools/receipt_processor.py`)
 Processes extracted text using IBM Granite 3.3 LLM and validates structured output.
@@ -22,24 +22,17 @@ Processes extracted text using IBM Granite 3.3 LLM and validates structured outp
 **Main Methods:**
 - `process(receipt_text: str) -> dict` - Sends prompt to Granite, returns validated JSON
 
-**Features:**
-- Uses prompts from `config/prompts.py`
+**Notable Behavior:**
+- Logs a redacted preview of the first 10 lines of the transcript used for structuring; strips markdown headings and sensitive tokens
+- Uses prompts from `config/prompts.py`; performs one strict JSON-only retry on invalid JSON
 - Robust JSON extraction (handles extra text around JSON, Markdown code fences, braces in strings)
-- Schema validation against `data/schemas/receipt_schema.json`
-- Error handling for invalid JSON and validation failures
-- Confidence scoring for extraction quality
+- Schema validation against `data/schemas/receipt_schema.json`; heuristic fallback in controller if JSON still fails
 
 ### Query Analyzer (`tools/query_analyzer.py`)
 Analyzes natural language queries using Granite LLM to extract search parameters.
 
 **Main Methods:**
 - `analyze(user_query: str, current_date: Optional[str] = None) -> dict` - Parses query into structured filters
-
-**Features:**
-- Natural language understanding for expense queries
-- Support for time periods (`last_month`, `this_month`, `this_year`)
-- Category and vendor filtering
-- Amount range queries
 
 ### Sheets Manager (`tools/sheets_manager.py`)
 Manages Google Sheets operations for expense data storage and retrieval.
@@ -208,3 +201,79 @@ Centralized prompt management for LLM interactions:
 - All business logic remains identical between local and deployed environments
 - Environment variables control all configuration
 - No secrets in code or documentation 
+
+## Query Analyzer
+
+Isabella translates natural-language questions about your Expenses Google Sheet into a structured JSON "query plan". This plan is executed to filter, aggregate, and present results.
+
+Schema (all fields required; use null where unknown):
+
+```json
+{
+  "intent": "summary|search|aggregate|trend|top_n|compare",
+  "time_range": {
+    "start_date": "YYYY-MM-DD or null",
+    "end_date": "YYYY-MM-DD or null",
+    "relative": "last_month|this_month|this_year|last_quarter|last_7_days|last_90_days|custom|null"
+  },
+  "filters": {
+    "vendors": ["..."] or null,
+    "categories": ["..."] or null,
+    "min_amount": 0 or null,
+    "max_amount": 0 or null,
+    "text_search": "string or null"
+  },
+  "group_by": "none|vendor|category|date",
+  "trend": {
+    "enabled": true,
+    "granularity": "day|week|month|quarter|year"
+  },
+  "top_n": {
+    "enabled": true,
+    "dimension": "vendor|category",
+    "limit": 5
+  },
+  "compare": {
+    "enabled": true,
+    "baseline": { "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" } or null,
+    "target": { "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" } or null
+  },
+  "sort": {
+    "by": "amount|date|vendor|category|count|total",
+    "direction": "asc|desc"
+  },
+  "output": {
+    "format": "summary|table|detailed|chart",
+    "chart": {
+      "type": "bar|line|pie|area|null",
+      "dimension": "vendor|category|date|null",
+      "metric": "amount|count|total|null"
+    }
+  }
+}
+```
+
+Example queries → plans:
+- Top 5 vendors last 90 days
+```json
+{"intent":"top_n","time_range":{"start_date":null,"end_date":null,"relative":"last_90_days"},"filters":{"vendors":null,"categories":null,"min_amount":null,"max_amount":null,"text_search":null},"group_by":"vendor","trend":{"enabled":false,"granularity":"month"},"top_n":{"enabled":true,"dimension":"vendor","limit":5},"compare":{"enabled":false,"baseline":null,"target":null},"sort":{"by":"total","direction":"desc"},"output":{"format":"summary","chart":{"type":null,"dimension":null,"metric":null}}}
+```
+- Show total spend last month by category as a chart
+```json
+{"intent":"aggregate","time_range":{"start_date":null,"end_date":null,"relative":"last_month"},"filters":{"vendors":null,"categories":null,"min_amount":null,"max_amount":null,"text_search":null},"group_by":"category","trend":{"enabled":true,"granularity":"month"},"top_n":{"enabled":false,"dimension":"category","limit":5},"compare":{"enabled":false,"baseline":null,"target":null},"sort":{"by":"total","direction":"desc"},"output":{"format":"chart","chart":{"type":"bar","dimension":"category","metric":"total"}}}
+```
+- List groceries at Trader Joe’s over $20 this year
+```json
+{"intent":"search","time_range":{"start_date":null,"end_date":null,"relative":"this_year"},"filters":{"vendors":["Trader Joe's"],"categories":["Groceries"],"min_amount":20,"max_amount":null,"text_search":null},"group_by":"none","trend":{"enabled":false,"granularity":"month"},"top_n":{"enabled":false,"dimension":"vendor","limit":5},"compare":{"enabled":false,"baseline":null,"target":null},"sort":{"by":"date","direction":"desc"},"output":{"format":"table","chart":{"type":null,"dimension":null,"metric":null}}}
+```
+- Compare this month vs last month for office supplies
+```json
+{"intent":"compare","time_range":{"start_date":null,"end_date":null,"relative":"this_month"},"filters":{"vendors":null,"categories":["Office Supplies"],"min_amount":null,"max_amount":null,"text_search":null},"group_by":"none","trend":{"enabled":false,"granularity":"month"},"top_n":{"enabled":false,"dimension":"vendor","limit":5},"compare":{"enabled":true,"baseline":{"start_date":"2024-01-01","end_date":"2024-01-31"},"target":{"start_date":"2024-02-01","end_date":"2024-02-29"}},"sort":{"by":"total","direction":"desc"},"output":{"format":"summary","chart":{"type":null,"dimension":null,"metric":null}}}
+```
+
+Execution
+- The controller applies filters (dates, vendors, categories, amount, text_search), groups/aggregates if requested, computes trends or top-N, sorts, and returns one of:
+  - summary: totals with top vendors/categories
+  - table: simple text table
+  - detailed: count-only detail
+  - chart: textual indication of prepared series (no image rendering) 
