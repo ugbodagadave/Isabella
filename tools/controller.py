@@ -19,6 +19,14 @@ from tools.receipt_processor import _extract_total_from_text
 logger = logging.getLogger(__name__)
 
 
+def _fmt_money(value: float) -> str:
+	try:
+		amt = float(value or 0)
+	except Exception:
+		amt = 0.0
+	return f"${amt:,.2f}"
+
+
 class Controller:
 	def __init__(self, text_extractor: TextExtractor, receipt_processor: ReceiptProcessor, sheets_manager: SheetsManager, query_analyzer: Optional[QueryAnalyzer] = None) -> None:
 		self.text_extractor = text_extractor
@@ -27,20 +35,70 @@ class Controller:
 		self.settings = load_settings()
 		self.query_analyzer = query_analyzer
 
+	def _infer_vendor_from_query(self, query: str, rows: List[Dict[str, Any]]) -> Optional[str]:
+		# Only infer when query explicitly mentions a vendor via preposition or is a short vendor-only query
+		known_vendors = {str(r.get("vendor", "")).strip() for r in rows if r.get("vendor")}
+		if not query or not known_vendors:
+			return None
+		# Explicit preposition pattern
+		m = re.search(r"\b(?:on|at|from|in)\s+([A-Za-z][A-Za-z0-9 '&.-]{1,60})\b", query, flags=re.IGNORECASE)
+		candidates: List[str] = []
+		if m:
+			candidates.append(m.group(1).strip())
+		# If the whole query is very short (<= 3 tokens), try exact token matching
+		tokens = [t for t in re.split(r"[^A-Za-z0-9&'.-]+", query) if t]
+		stop = {"top", "categories", "category", "this", "last", "month", "week", "year", "by", "processed", "date", "how", "much", "have", "i", "spent", "total", "sum"}
+		if len(tokens) <= 3 and any(t.lower() not in stop for t in tokens):
+			candidates.extend(tokens)
+		# Normalize and require token overlap, not substring
+		def vendor_tokens(name: str) -> set[str]:
+			return {t.lower() for t in re.split(r"[^A-Za-z0-9&'.-]+", name) if t}
+		best: Optional[Tuple[int, str]] = None
+		for cand in candidates:
+			cand_tokens = vendor_tokens(cand)
+			if not cand_tokens:
+				continue
+			for v in known_vendors:
+				vt = vendor_tokens(v)
+				overlap = cand_tokens & vt
+				if overlap and len(overlap) == len(cand_tokens):
+					score = len(vt)
+					if best is None or score > best[0]:
+						best = (score, v)
+		return best[1] if best else None
+
 	def handle_query(self, text: str) -> str:
 		if not self.query_analyzer:
 			return f"Received query: {text}"
 		plan = self.query_analyzer.analyze(text)
 		rows = self.sheets.query_expenses({})
 		logger.info("Plan: intent=%s group_by=%s trend=%s top_n=%s filters=%s time_range=%s", plan.get("intent"), plan.get("group_by"), plan.get("trend"), plan.get("top_n"), plan.get("filters"), plan.get("time_range"))
-		filtered = self._apply_filters(rows, plan.get("filters", {}), plan.get("time_range") or {})
+		filters = dict(plan.get("filters") or {})
+		# Only infer vendor when the plan is vendor-targeted (not category-focused)
+		top_dim = ((plan.get("top_n") or {}).get("dimension"))
+		group_by = plan.get("group_by")
+		vendor_targeted = (top_dim == "vendor") or (group_by == "vendor") or (plan.get("intent") in {"summary", "search"} and top_dim != "category" and group_by != "category")
+		if vendor_targeted and not (filters.get("vendors") or []):
+			guess = self._infer_vendor_from_query(text, rows)
+			if guess:
+				filters["vendors"] = [guess]
+				logger.info("Inferred vendor from query: %s", guess)
+		time_range = plan.get("time_range") or {}
+		filtered = self._apply_filters(rows, filters, time_range)
 		logger.info("Filtered rows by date: %d", len(filtered))
 		# Fallback: if no matches by receipt date, try processed_date range
-		if not filtered and (plan.get("time_range") or {}).get("relative"):
-			filtered = self._apply_filters(rows, plan.get("filters", {}), plan.get("time_range") or {}, use_processed_date=True)
+		if not filtered and (time_range or {}).get("relative"):
+			filtered = self._apply_filters(rows, filters, time_range, use_processed_date=True)
 			logger.info("Filtered rows by processed_date: %d", len(filtered))
+			# If still none and a category filter was applied, relax it
+			if not filtered and (filters.get("categories") or []):
+				relaxed = dict(filters)
+				relaxed["categories"] = None
+				filtered = self._apply_filters(rows, relaxed, time_range, use_processed_date=True)
+				logger.info("Relaxed category filter; rows after relax: %d", len(filtered))
 		intent = plan.get("intent", "summary")
 		output_fmt = ((plan.get("output") or {}).get("format")) or "summary"
+		vendor_filter = (filters.get("vendors") or []) if isinstance(filters.get("vendors"), list) else []
 
 		if (plan.get("compare") or {}).get("enabled"):
 			return self._execute_compare(rows, plan)
@@ -51,11 +109,16 @@ class Controller:
 			return f"Found {len(filtered)} matching expenses"
 
 		if intent == "top_n" or (plan.get("top_n") or {}).get("enabled"):
+			# If a single vendor is specified, answer directly with their total
+			if len(vendor_filter) == 1:
+				total = sum(self._to_float(r.get("amount")) for r in filtered)
+				count = len(filtered)
+				return f"Your total spend on {vendor_filter[0]} is *{_fmt_money(total)}* ({count} transactions)"
 			dim = (plan.get("top_n") or {}).get("dimension") or "vendor"
 			limit = int((plan.get("top_n") or {}).get("limit") or 5)
 			top = self._aggregate_top(filtered, dim, limit)
-			parts = [f"{k}: {v:.2f}" for k, v in top]
-			return f"Summary: Top {limit} {dim}(s): " + "; ".join(parts) if parts else "Summary: no data"
+			parts = [f"{k}: {_fmt_money(v)}" for k, v in top]
+			return f"Top {limit} {dim}(s): " + "; ".join(parts) if parts else "No data"
 
 		group_by = plan.get("group_by", "none")
 		trend = plan.get("trend") or {"enabled": False, "granularity": "month"}
@@ -77,13 +140,15 @@ class Controller:
 		# Default summary
 		total = sum(self._to_float(r.get("amount")) for r in filtered)
 		count = len(filtered)
+		if len(vendor_filter) == 1:
+			return f"Your total spend on {vendor_filter[0]} is *{_fmt_money(total)}* ({count} transactions)"
 		vendor_totals: Dict[str, float] = defaultdict(float)
 		for r in filtered:
 			vendor_totals[str(r.get("vendor", "Unknown"))] += self._to_float(r.get("amount"))
 		limit = max(1, int(self.settings.rules.top_vendors_limit or 5))
 		top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:limit]
-		vendors_str = "; ".join(f"{v}: {amt:.2f}" for v, amt in top_vendors) if top_vendors else "None"
-		return f"Summary: {count} expenses totaling {total:.2f}. Vendors: {vendors_str}"
+		vendors_str = "; ".join(f"{v}: {_fmt_money(amt)}" for v, amt in top_vendors) if top_vendors else "None"
+		return f"Summary: {count} expenses totaling {_fmt_money(total)}. Top vendors: {vendors_str}"
 
 	def _render_grouped(self, series: List[Tuple[str, float, int]], key_label: str) -> str:
 		# Simple textual listing
@@ -91,7 +156,7 @@ class Controller:
 			return "No results"
 		# Sort by total desc by default
 		series = sorted(series, key=lambda x: x[1], reverse=True)
-		parts = [f"{k}: {total:.2f} (count {cnt})" for k, total, cnt in series]
+		parts = [f"{k}: {_fmt_money(total)} ({cnt} transactions)" for k, total, cnt in series]
 		return "; ".join(parts)
 
 	def _render_chart_series(self, series: List[Tuple[str, float, int]], chart: Dict[str, Any]) -> str:
@@ -312,7 +377,7 @@ class Controller:
 		t_total, t_count = _sum_for_range(target)
 		delta = t_total - b_total
 		pct = (delta / b_total * 100.0) if b_total else 0.0
-		return f"Compare: baseline total {b_total:.2f} ({b_count}); target total {t_total:.2f} ({t_count}); delta {delta:.2f} ({pct:.1f}%)"
+		return f"Compare: baseline total {_fmt_money(b_total)} ({b_count}); target total {_fmt_money(t_total)} ({t_count}); delta {_fmt_money(delta)} ({pct:.1f}%)"
 
 	@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
 	def _extract_text_with_retry(self, path: str) -> str:
