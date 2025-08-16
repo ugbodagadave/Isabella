@@ -139,3 +139,14 @@
 - Expand observability: correlation IDs and duration metrics across OCR/LLM/Sheets/Slack
 - Harden error handling and retries in the Slack runner
 - Consider HTTP mode implementation for alternative deployment scenarios 
+
+## Status Update – Vision/PDF flow
+- Image receipts: extracted via vision chat; transcripts logged; structuring via Granite with stricter prompt and retry
+- PDFs: extracted via `pdfplumber` (no vision)
+- Post-processing: vendor/amount/date/location/description heuristics; duplicate detection intact
+- Known issue: intermittent Granite invalid JSON responses on some receipts; temporary heuristic fallback implemented
+
+## Action Items
+- Investigate Granite function-style JSON or stronger constrained output
+- Enhance receipt_number extraction and description summarization
+- Complete Query Analyzer prompt and integration for NL queries over Google Sheets 

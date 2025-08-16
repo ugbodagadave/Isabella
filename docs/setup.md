@@ -43,9 +43,10 @@ Create `.env` based on `.env.sample` and configure all required variables:
 - `SLACK_CHANNEL_ID` - Default channel for notifications
 
 **Vision OCR / Processing:**
-- Default backend is vision via `meta-llama/llama-3-2-11b-vision-instruct` (IBM watsonx chat)
+- Images use vision chat via `meta-llama/llama-3-2-11b-vision-instruct` (IBM watsonx)
+- PDFs use `pdfplumber` (no vision)
 - To force legacy OCR for tests, set `OCR_BACKEND=tesseract`
-- Images are sent as base64 data URIs to chat API; PDFs are rasterized to images first
+- Logs include a redacted transcript preview to aid debugging
 
 **Business Rules:**
 - `DEFAULT_CURRENCY` - Default currency (default: `USD`)

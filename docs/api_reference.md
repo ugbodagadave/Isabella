@@ -8,7 +8,7 @@ Handles text extraction from images and PDFs. Default backend is the IBM watsonx
 **Main Methods:**
 - `extract(path: str) -> str` - Detects URL/file; for images and PDFs uses vision chat by default; legacy OCR paths available
 - `extract_from_image(image_path: str) -> str` - Vision chat transcription when backend is `vision`; otherwise Tesseract
-- `extract_from_pdf(pdf_path: str) -> str` - PDF rasterization to images then vision chat; legacy text extraction path retained
+- `extract_from_pdf(pdf_path: str) -> str` - PDF text via `pdfplumber` (no vision)
 
 **Features:**
 - Vision-first extraction via `meta-llama/llama-3-2-11b-vision-instruct`
@@ -23,10 +23,10 @@ Processes extracted text using IBM Granite 3.3 LLM and validates structured outp
 - `process(receipt_text: str) -> dict` - Sends prompt to Granite, returns validated JSON
 
 **Notable Behavior:**
-- Logs a redacted preview of the first 10 lines of the transcript used for structuring
-- Uses prompts from `config/prompts.py`
+- Logs a redacted preview of the first 10 lines of the transcript used for structuring; strips markdown headings and sensitive tokens
+- Uses prompts from `config/prompts.py`; performs one strict JSON-only retry on invalid JSON
 - Robust JSON extraction (handles extra text around JSON, Markdown code fences, braces in strings)
-- Schema validation against `data/schemas/receipt_schema.json`
+- Schema validation against `data/schemas/receipt_schema.json`; heuristic fallback in controller if JSON still fails
 
 ### Query Analyzer (`tools/query_analyzer.py`)
 Analyzes natural language queries using Granite LLM to extract search parameters.
