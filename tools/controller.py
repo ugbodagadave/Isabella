@@ -117,8 +117,8 @@ class Controller:
 			dim = (plan.get("top_n") or {}).get("dimension") or "vendor"
 			limit = int((plan.get("top_n") or {}).get("limit") or 5)
 			top = self._aggregate_top(filtered, dim, limit)
-			parts = [f"{k}: {_fmt_money(v)}" for k, v in top]
-			return f"Top {limit} {dim}(s): " + "; ".join(parts) if parts else "No data"
+			parts = [f"{k}: {v:.2f}" for k, v in top]
+			return f"Summary: Top {limit} {dim}(s): " + "; ".join(parts) if parts else "No data"
 
 		group_by = plan.get("group_by", "none")
 		trend = plan.get("trend") or {"enabled": False, "granularity": "month"}
@@ -147,8 +147,8 @@ class Controller:
 			vendor_totals[str(r.get("vendor", "Unknown"))] += self._to_float(r.get("amount"))
 		limit = max(1, int(self.settings.rules.top_vendors_limit or 5))
 		top_vendors = sorted(vendor_totals.items(), key=lambda kv: kv[1], reverse=True)[:limit]
-		vendors_str = "; ".join(f"{v}: {_fmt_money(amt)}" for v, amt in top_vendors) if top_vendors else "None"
-		return f"Summary: {count} expenses totaling {_fmt_money(total)}. Top vendors: {vendors_str}"
+		vendors_str = "; ".join(f"{v}: {amt:.2f}" for v, amt in top_vendors) if top_vendors else "None"
+		return f"Summary: {count} expenses totaling {total:.2f}. Top vendors: {vendors_str}"
 
 	def _render_grouped(self, series: List[Tuple[str, float, int]], key_label: str) -> str:
 		# Simple textual listing
@@ -187,12 +187,12 @@ class Controller:
 			return 0.0
 
 	def _parse_row_date(self, value: Any) -> Optional[date]:
-		try:
-			if not value:
+			try:
+				if not value:
+					return None
+				return datetime.strptime(str(value), "%Y-%m-%d").date()
+			except Exception:
 				return None
-			return datetime.strptime(str(value), "%Y-%m-%d").date()
-		except Exception:
-			return None
 
 	def _parse_processed_date(self, value: Any) -> Optional[date]:
 		try:
@@ -377,7 +377,7 @@ class Controller:
 		t_total, t_count = _sum_for_range(target)
 		delta = t_total - b_total
 		pct = (delta / b_total * 100.0) if b_total else 0.0
-		return f"Compare: baseline total {_fmt_money(b_total)} ({b_count}); target total {_fmt_money(t_total)} ({t_count}); delta {_fmt_money(delta)} ({pct:.1f}%)"
+		return f"Compare: baseline total {b_total:.2f} ({b_count}); target total {t_total:.2f} ({t_count}); delta {delta:.2f} ({pct:.1f}%)"
 
 	@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.2, min=0.2, max=2))
 	def _extract_text_with_retry(self, path: str) -> str:
