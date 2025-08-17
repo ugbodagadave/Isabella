@@ -1,4 +1,6 @@
-# Isabella — AI Bookkeeping Agent
+# Isabella — AI Bookkeeping Agent for Accountants
+
+![Isabella AI Bookkeeping Agent](Isabella_Header-07.png)
 
 Isabella is an AI bookkeeping agent that streamlines expense management. It uses **IBM Granite** to extract structured data from receipts, stores it in Google Sheets, and allows you to ask natural-language questions about your spending through Slack. The system is designed for extensibility, with an architecture that supports both direct AI model integration and orchestration via **IBM watsonx Orchestrate**.
 
