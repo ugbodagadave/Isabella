@@ -6,16 +6,16 @@ REQUIRED SCHEMA:
   "vendor": "string (cleaned company name, proper caps)",
   "amount": "number (total amount, no $ symbol)",
   "date": "string (YYYY-MM-DD format)",
-  "category": "string (from categories below)"
+  "category": "string (from categories below)",
+  "tax_amount": "number (tax amount, 0 if not shown)"
 }}
 
 OPTIONAL FIELDS:
 {{
-  "payment_method": "string (Cash/Credit/Debit/etc)",
+  "payment_method": "string (Cash|Credit|Debit - pick ONE most likely)",
   "receipt_number": "string (TC#/TR#/ID# from header/totals)",
-  "tax_amount": "number (if shown separately)",
   "location": "string (full address on one line)",
-  "description": "string (1-3 items: join with '; '; >3 items: summary)",
+  "description": "string (brief summary: 'Groceries' or 'Office supplies' or max 3 main items)",
   "items": ["array of item names with optional prices"]
 }}
 
@@ -25,6 +25,9 @@ RULES:
 - Clean vendor: "WAL*MART" → "Walmart", remove extra spaces
 - Date: prefer one near TOTAL/header, convert to YYYY-MM-DD
 - Amount: use largest TOTAL/AMOUNT DUE (ignore SUBTOTAL)
+- Tax: extract TAX amount or calculate from TAX rate if shown, use 0 if no tax
+- Payment: prefer "Cash", "Credit", or "Debit" (single word, most likely method)
+- Description: keep brief - "Groceries", "Gas", "Office supplies", or "Item1, Item2, Item3" max
 - Category: pick most specific match for vendor/items
 - Return ONLY valid JSON, no markdown/comments
 
