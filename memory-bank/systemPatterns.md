@@ -1,96 +1,184 @@
 # System Patterns
 
-## Core Architecture
-- **LLM-first Design:** Granite 3.3 (`ibm/granite-3-3-8b-instruct`) for receipt understanding and structured data extraction
-- **Local Orchestration:** IBM watsonx Orchestrate Developer Edition running locally via Docker containers
-- **Event-Driven Processing:** Controller manages complete OCR → LLM → validation → Sheets → Slack pipeline
-- **Runtime Architecture:** Local Orchestrate Developer Edition provides agent UI; Slack events handled by dedicated Socket Mode listener
-- **Production Flow:** Validated end-to-end receipt processing with real integrations
+## Architectural Overview
 
-## Deployment Architecture
+Isabella follows a **multi-agent AI architecture** specifically designed for accounting professionals, where specialized AI models collaborate to deliver comprehensive expense management with the accuracy and audit requirements essential for professional bookkeeping.
 
-### IBM watsonx Orchestrate Developer Edition (Local)
-- **Docker-based Deployment:** Core services (API, Redis, Postgres, MinIO) running in containers
-- **Local Environment:** `orchestrate env activate local` for development and testing
-- **Agent Import:** `agent.yaml` with `spec_version: v1` imported into local Orchestrate instance
-- **UI Access:** Local Orchestrate UI available at `http://localhost:3000` for agent management
-- **API Access:** Local API available at `http://localhost:4321` with OpenAPI documentation
+## Core Design Patterns
 
-### Socket Mode Integration
-- **WebSocket-based Events:** Slack events received via `SocketModeHandler` without public HTTP endpoints
-- **Dedicated Listener:** `tools/slack_socket_runner.py` runs as standalone process for event handling
-- **File Processing:** `file_shared` events trigger download → temp file → controller processing
-- **Authentication:** Bot token used for file downloads via `url_private_download` with Bearer authentication
-- **Security:** No public HTTP exposure required; all communication via secure WebSocket
+### 1. Multi-Modal Document Processing Pattern
+**Problem**: Accounting professionals receive financial documents in various formats (receipt images, PDF invoices, scanned documents) requiring different processing approaches.
 
-## Event Handling
-- **Slack Socket Mode:** `SocketModeHandler` receives events; `file_shared` triggers download → temp file → controller `handle_file_shared`
-- **Message Events:** Route to controller `handle_query` for natural language processing
-- **File Downloads:** `tools/slack_interface.py` uses Slack WebClient `files_info` + `url_private_download` with Bearer token
-- **Temporary File Management:** Files downloaded to temp paths with automatic cleanup after processing
+**Solution**: Dual-pathway processing architecture that intelligently routes documents based on type:
 
-## Data Flow Architecture
+```
+Document Input → Format Detection → Processing Route
+├── Images → Meta Llama 3.2 11B Vision → Text Extraction
+├── PDFs → pdfplumber Library → Text Extraction  
+└── Text → IBM Granite 8B → Structured Data Extraction
+```
 
-### Production Pipeline (Validated E2E)
-1. **Slack File Upload:** User uploads receipt to Slack channel
-2. **Socket Mode Event:** `file_shared` event received by `tools/slack_socket_runner.py`
-3. **File Download:** `tools/slack_interface.py` downloads file using Slack WebClient with bot token
-4. **Text Extraction:** `tools/text_extractor.py` performs OCR (Tesseract) or PDF parsing (pdfplumber)
-5. **AI Processing:** `tools/receipt_processor.py` calls Granite 3.3 for structured JSON extraction
-6. **Schema Validation:** JSON validated against `data/schemas/receipt_schema.json`
-7. **Data Persistence:** `tools/sheets_manager.py` appends to Google Sheets using header-driven mapping
-8. **User Confirmation:** Slack confirmation posted: "✅ Your receipt has been added to Google Sheets"
+**Implementation**:
+- `TextExtractor` automatically detects document type and selects optimal processing method
+- Vision model handles complex receipt layouts, handwritten notes, and poor image quality
+- PDF library provides reliable text extraction for digital invoices
+- Unified output format ensures consistent downstream processing
 
-### Error Handling and Recovery
-- **Retry Mechanisms:** Tenacity-based retries for external API calls (OCR, LLM, Sheets)
-- **Duplicate Detection:** Vendor/amount/date comparison logic implemented
-- **Schema Validation:** All LLM outputs validated against predefined schemas
-- **Graceful Degradation:** Error messages posted to Slack for user awareness
+### 2. Schema-Driven Financial Data Extraction
+**Problem**: Professional bookkeeping requires consistent, validated financial data structure for compliance and audit requirements.
 
-## Observability and Monitoring
-- **Structured Logging:** JSON logs with timestamp, component, action, correlation_id, event, status, duration_ms, error_type, error_message
-- **Correlation IDs:** End-to-end request tracking across all components
-- **Duration Metrics:** Performance tracking for OCR, LLM, and Sheets operations
-- **Error Classification:** Categorized error types for monitoring and alerting
-- **Audit Trail:** Google Sheets persistence with metadata and Slack confirmation timestamps
+**Solution**: Strict schema enforcement with AI-powered extraction and validation:
 
-## Manual Review Architecture
-- **Duplicate Detection:** Implemented with vendor/amount/date comparison
-- **Confidence Thresholds:** OCR confidence and schema validation triggers
-- **Review Workflow:** Planned interactive Approve/Reject buttons for Slack review path
-- **Decision Logging:** Manual approvals logged with actor, action, correlation_id, and reason
+```json
+{
+  "vendor": "string (cleaned, proper capitalization)",
+  "amount": "number (validated, no currency symbols)",
+  "date": "string (YYYY-MM-DD format)",
+  "category": "string (from accounting standard categories)",
+  "tax_amount": "number (required, 0 if not found)"
+}
+```
 
-## Security Architecture
-- **Environment Variables:** All secrets managed via `.env` file; no credentials in code or logs
-- **Token Authentication:** Slack file downloads use bot token Bearer authentication
-- **Least Privilege:** Minimal Slack scopes and Google Sheets permissions
-- **Temporary Files:** Secure file handling with automatic cleanup after processing
-- **IAM Integration:** IBM Watsonx API access via IAM tokens with automatic refresh
+**Implementation**:
+- `ReceiptProcessor` applies accounting knowledge through structured prompts
+- Schema validation ensures every field meets professional standards
+- Fallback mechanisms handle edge cases while maintaining data integrity
+- Audit trail captures all processing decisions for compliance
 
-## Configuration Management
-- **Environment-driven:** All configuration via environment variables
-- **Single Source of Truth:** `config/prompts.py` for all Granite prompts
-- **Header-driven Mapping:** Google Sheets operations use `data/templates/sheets_template.json`
-- **Schema Validation:** JSON validation against `data/schemas/receipt_schema.json`
-- **Business Rules:** Configurable thresholds and settings via environment variables
+### 3. Agentic AI Coordination Pattern
+**Problem**: Complex financial document processing requires multiple specialized AI capabilities working in coordination.
 
-## Testing Architecture
-- **Unit Tests:** Component-level testing with mocked external services
-- **Integration Tests:** Service integration testing with mocked APIs
-- **End-to-End Tests:** Complete pipeline validation with real or test data
-- **Test Isolation:** `_test_mode` flag for Slack interface to bypass real API calls
-- **Environment Loading:** Proper environment variable loading for test sessions
+**Solution**: Multi-agent system where each AI agent has specific expertise:
 
-## Deployment Patterns
-- **Local Development:** IBM watsonx Orchestrate Developer Edition for local deployment
-- **Socket Mode Primary:** WebSocket-based event handling (no public HTTP required)
-- **HTTP Mode Optional:** ngrok-based deployment for alternative scenarios
-- **Container-based:** Docker containers for Orchestrate services
-- **Process-based:** Dedicated Python process for Socket Mode listener
+**Vision Agent** (Meta Llama 3.2 11B Vision):
+- Understands receipt layouts and visual elements
+- Extracts text from images with high accuracy
+- Handles poor image quality and various formats
 
-## Error Recovery and Resilience
-- **Exponential Backoff:** Retry mechanisms with increasing delays
-- **Circuit Breaker:** Protection against cascading failures
-- **Graceful Degradation:** Service continues operating with reduced functionality
-- **User Feedback:** Clear error messages and status updates via Slack
-- **Monitoring Integration:** Error tracking and alerting capabilities 
+**Financial Extraction Agent** (IBM Granite 8B):
+- Applies accounting knowledge for data structuring
+- Understands vendor names, tax calculations, and expense categories
+- Produces consistent JSON output for downstream processing
+
+**Query Analysis Agent** (IBM Granite 8B):
+- Processes natural language financial questions
+- Converts conversational queries to structured search plans
+- Understands accounting terminology and time periods
+
+**Coordination Controller**:
+- Orchestrates multi-agent workflows
+- Manages error handling and retry mechanisms
+- Maintains audit trails across all agent interactions
+
+### 4. Natural Language Financial Intelligence
+**Problem**: Accounting professionals need to query expense data without learning complex interfaces or spreadsheet formulas.
+
+**Solution**: Conversational AI that understands accounting terminology and financial concepts:
+
+```
+Natural Language → Query Analysis → Structured Plan → Data Filtering → Professional Report
+```
+
+**Examples**:
+- *"Show me travel expenses over $100 last quarter"* → Time filter + Category filter + Amount filter
+- *"What's our total spending at Office Depot?"* → Vendor aggregation across all time
+- *"Compare this month to last month"* → Comparative analysis with percentage changes
+
+**Implementation**:
+- `QueryAnalyzer` converts natural language to structured JSON query plans
+- Controller executes plans with filters, aggregations, and sorting
+- Output formatting provides professional-grade summaries and tables
+
+### 5. Professional Integration Pattern
+**Problem**: Accounting workflows require seamless integration with existing professional tools and security requirements.
+
+**Solution**: Multi-layered integration that respects professional security and workflow needs:
+
+**Slack Integration Layer**:
+- Socket Mode WebSocket connection (no public HTTP endpoints)
+- File upload handling with temporary storage and cleanup
+- Professional confirmation messages with processing status
+
+**Google Sheets Integration Layer**:
+- Header-driven mapping compatible with accounting software
+- Canonical field mapping for consistent data structure
+- Service account authentication for enterprise security
+
+**IBM Watsonx Integration Layer**:
+- Enterprise-grade AI model access with IAM authentication
+- Local deployment option for data privacy requirements
+- Comprehensive error handling and retry mechanisms
+
+### 6. Audit Trail and Compliance Pattern
+**Problem**: Professional bookkeeping requires complete audit trails and compliance documentation for financial examinations.
+
+**Solution**: Comprehensive logging and correlation tracking throughout the entire processing pipeline:
+
+```
+Receipt Upload → Correlation ID Assignment → Processing Logs → Data Validation → Audit Documentation
+```
+
+**Implementation**:
+- Every transaction receives unique correlation ID for end-to-end tracking
+- Tool-level logging captures specific actions taken by each component
+- Processing timestamps and status tracking for compliance requirements
+- Schema validation logs for data integrity verification
+
+## Critical Design Decisions
+
+### 1. Local-First Architecture
+**Decision**: IBM Watsonx Orchestrate Developer Edition with local deployment
+**Rationale**: Accounting firms require data privacy and control over financial information
+**Impact**: Enterprise security without cloud dependencies, full audit control
+
+### 2. Multi-Modal AI Selection
+**Decision**: Separate specialized models for vision and text processing
+**Rationale**: Different AI models excel at different tasks - vision vs. structured data extraction
+**Impact**: Higher accuracy than single-model approaches, professional-grade reliability
+
+### 3. Schema-First Data Structure
+**Decision**: Strict JSON schema enforcement for all extracted data
+**Rationale**: Professional bookkeeping requires consistent, validated data structure
+**Impact**: Reliable data for accounting software integration, audit compliance
+
+### 4. Slack-Centric Interface
+**Decision**: Slack as primary user interface rather than custom application
+**Rationale**: Accounting firms already use Slack for communication
+**Impact**: Zero learning curve, seamless workflow integration
+
+### 5. Google Sheets as Data Store
+**Decision**: Google Sheets rather than database for structured data storage
+**Rationale**: Familiar format for accounting professionals, easy export/import
+**Impact**: Compatible with existing accounting software workflows
+
+## Error Handling and Resilience
+
+### Multi-Level Fallback Strategy
+1. **AI Model Fallbacks**: If Granite returns invalid JSON, retry with stricter prompts
+2. **Heuristic Extraction**: If AI fails completely, extract key data using text patterns
+3. **Human Review Path**: Flag low-confidence extractions for manual verification
+4. **Data Validation**: Schema enforcement catches and corrects structural issues
+
+### Retry Mechanisms
+- **Exponential Backoff**: For API failures and temporary service issues
+- **Smart Retries**: Different strategies for different failure types
+- **Circuit Breakers**: Prevent cascade failures in external service dependencies
+
+### Professional Error Communication
+- **User-Friendly Messages**: Clear explanations in Slack without technical jargon
+- **Processing Status**: Real-time updates on receipt processing progress
+- **Error Recovery**: Suggestions for resolving common issues
+
+## Performance and Scalability
+
+### Context Window Optimization
+- **Smart Text Trimming**: Keep first 40 and last 40 lines of long receipts
+- **Efficient Prompting**: Structured prompts that fit within model context limits
+- **Batch Processing**: Handle multiple receipts efficiently
+
+### Caching and Optimization
+- **Token Management**: Efficient IBM Watsonx API token reuse
+- **Image Processing**: PIL-based optimization with fallback handling
+- **Database Queries**: Efficient Google Sheets API usage patterns
+
+This architecture provides the foundation for reliable, professional-grade expense management that meets the accuracy, security, and audit requirements essential for accounting professionals while maintaining the simplicity and efficiency that drives adoption. 
