@@ -2,9 +2,11 @@
 
 Built during the IBM TechXchange 2025 Pre-conference watsonx Hackathon [August 1–17, 2025].
 
-![Isabella AI Bookkeeping Agent](Isabella_Header-07.png)
+![Isabella AI Bookkeeping Agent](Isabella%20Header-06.png)
 
 Isabella is an AI-powered bookkeeping agent specifically designed for accounting professionals. Built on IBM Watsonx and advanced AI models, Isabella automates receipt processing, expense categorization, and financial data analysis through natural language interactions - eliminating the manual data entry burden that consumes 15-20 hours per week for most CPAs and bookkeepers.
+
+Demo Video: https://youtu.be/lKdTw17UpEw
 
 ## 💼 For Accounting Professionals
 
