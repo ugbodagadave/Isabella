@@ -52,6 +52,12 @@ SCHEMA (all fields required, use null if unknown):
   "output": {{"format": "summary|table|detailed|chart", "chart": {{"type": "bar|line|pie|area|null", "dimension": "vendor|category|date|null", "metric": "amount|count|total|null"}}}}
 }}
 
+RULES:
+- If the user does NOT mention a time period, leave start_date/end_date/relative all null (means *all time*).
+- Only populate filters.categories when the user explicitly names a category (see list below). Do NOT infer from a vendor.
+- When the query asks for a *total* spend at a vendor or category (e.g. "total spent in Walmart"), set intent="summary", group_by="none", output.format="summary".
+- Do not add extra keys; if unsure set the JSON field to null.
+
 CATEGORIES: Office Supplies, Groceries, Travel & Transportation, Meals & Entertainment, Equipment & Software, Professional Services, Marketing & Advertising, Utilities & Communications, Training & Education, Maintenance & Repairs, Other Business Expenses
 
 CURRENT DATE: {current_date}
