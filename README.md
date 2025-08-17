@@ -1,5 +1,7 @@
 # Isabella — AI Bookkeeping Agent for Accountants
 
+Built during the IBM TechXchange 2025 Pre-conference watsonx Hackathon [August 1–17, 2025].
+
 ![Isabella AI Bookkeeping Agent](Isabella_Header-07.png)
 
 Isabella is an AI-powered bookkeeping agent specifically designed for accounting professionals. Built on IBM Watsonx and advanced AI models, Isabella automates receipt processing, expense categorization, and financial data analysis through natural language interactions - eliminating the manual data entry burden that consumes 15-20 hours per week for most CPAs and bookkeepers.
@@ -72,17 +74,17 @@ Receive formatted summaries, vendor breakdowns, category analyses, and audit-rea
 - **Python 3.11+** for local deployment
 
 ### Professional Installation
-```powershell
+    ```powershell
 # Clone the repository
 git clone https://github.com/ugbodagadave/Isabella
 cd Isabella
 
 # Create secure environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
 
 # Install dependencies
-pip install -r requirements.txt
+    pip install -r requirements.txt
 ```
 
 ### Professional Configuration
@@ -168,20 +170,8 @@ pytest -m "not e2e"
 pytest tests/test_integrations/test_controller_flow.py::test_controller_e2e
 ```
 
-## 🎯 Why Isabella for Accounting Professionals?
+## 🙏 Acknowledgements
+We gratefully acknowledge IBM for providing credits to use IBM Watsonx and related services during development and testing of this project.
 
-### Built for Your Workflow
-Isabella understands that accounting professionals need more than just OCR - you need **intelligent automation that maintains the accuracy, audit trails, and compliance requirements essential for professional bookkeeping**.
 
-### Professional-Grade AI
-Built on **IBM Watsonx** with enterprise security and reliability. Uses **IBM Granite 8B** for financial data extraction and **Meta Llama 3.2 11B Vision** for receipt processing - not consumer-grade AI tools.
-
-### Immediate ROI
-**Save 15-20 hours per week** on manual data entry while **improving accuracy** and **accelerating month-end close processes**. The time savings alone pay for the system within the first month.
-
-### Seamless Integration
-Works with your existing tools - **Slack for communication**, **Google Sheets for data storage**, and **compatible with major accounting software** like QuickBooks and Xero.
-
----
-
-**Ready to eliminate manual receipt processing?** Isabella transforms the most time-consuming aspect of bookkeeping into an automated, intelligent workflow that lets you focus on what matters most - serving your clients and growing your practice. 
+ 

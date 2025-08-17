@@ -19,6 +19,7 @@ config/google-credentials.json
 Thumbs.db
 .idea/
 .vscode/
+.cursor/
 
 # Tests and coverage
 .pytest_cache/
