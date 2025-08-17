@@ -123,6 +123,7 @@ class TextExtractor:
 
 	def extract(self, path: str) -> str:
 		# URL handling for vision backend
+		logger.info("TextExtractor.extract: path=%s backend=%s", path, self.backend)
 		if self.backend == "vision" and (path.lower().startswith("http://") or path.lower().startswith("https://")):
 			instruction = (
 				"Transcribe all visible text from the receipt image.\n"

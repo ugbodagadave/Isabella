@@ -147,7 +147,7 @@ class ReceiptProcessor:
 		else:
 			receipt_trimmed = receipt_text
 		prompt = RECEIPT_EXTRACTION_PROMPT.format(receipt_text=receipt_trimmed)
-		logger.debug("Sending receipt text to Granite for extraction; text_length=%d", len(receipt_text))
+		logger.info("ReceiptProcessor.process: sending text_length=%d", len(receipt_text))
 		response_text = self.granite.generate(prompt)
 
 		# Parse JSON returned by model
@@ -170,6 +170,7 @@ class ReceiptProcessor:
 					logger.error("Granite retry still returned invalid JSON")
 					raise ValueError("Model returned invalid JSON") from e
 
+		logger.info("ReceiptProcessor.process: parsed JSON successfully")
 		# Normalize fields for schema compatibility
 		parsed = self._normalize_fields(parsed)
 
